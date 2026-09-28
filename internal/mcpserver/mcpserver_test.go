@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -88,11 +89,11 @@ func newTestSession(t *testing.T) *mcp.ClientSession {
 	t.Helper()
 	server := mcpserver.NewServer(testDeps())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
-	if _, err := server.Connect(context.Background(), serverTransport, nil); err != nil {
+	if _, err := server.Connect(t.Context(), serverTransport, nil); err != nil {
 		t.Fatalf("server connect: %v", err)
 	}
 	client := mcp.NewClient(&mcp.Implementation{Name: "mcpserver-test", Version: "v0"}, nil)
-	session, err := client.Connect(context.Background(), clientTransport, nil)
+	session, err := client.Connect(t.Context(), clientTransport, nil)
 	if err != nil {
 		t.Fatalf("client connect (initialize handshake): %v", err)
 	}
@@ -104,7 +105,7 @@ func newTestSession(t *testing.T) *mcp.ClientSession {
 // are part of the contract and asserted by the caller through IsError.
 func callTool(t *testing.T, session *mcp.ClientSession, name string, arguments map[string]any) *mcp.CallToolResult {
 	t.Helper()
-	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: arguments})
+	result, err := session.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: arguments})
 	if err != nil {
 		t.Fatalf("CallTool %s: protocol error: %v", name, err)
 	}
@@ -167,7 +168,7 @@ func firstRuleID(t *testing.T, language string) string {
 func TestInitializeAndListTools(t *testing.T) {
 	session := newTestSession(t)
 
-	result, err := session.ListTools(context.Background(), &mcp.ListToolsParams{})
+	result, err := session.ListTools(t.Context(), &mcp.ListToolsParams{})
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
 	}
@@ -212,13 +213,7 @@ func TestInitializeAndListTools(t *testing.T) {
 	}
 	required, _ := schema["required"].([]any)
 	for _, want := range []string{"language", "ids"} {
-		found := false
-		for _, name := range required {
-			if name == want {
-				found = true
-			}
-		}
-		if !found {
+		if !slices.Contains[[]any, any](required, want) {
 			t.Errorf("explain_guideline schema must require %q; required = %v", want, required)
 		}
 	}
@@ -408,7 +403,7 @@ func TestServerOverCommandTransport(t *testing.T) {
 		t.Skipf("go toolchain not available: %v", err)
 	}
 	root := repoRoot(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	cmd := exec.Command("go", "run", ".", "mcp")

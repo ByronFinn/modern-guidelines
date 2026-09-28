@@ -40,3 +40,4 @@ go run . list --file-path main.go
 - **文档中文，规则数据集英文**；改数据集前读 [CONTRIBUTING.md](CONTRIBUTING.md) 的 schema 速查与写作规范。
 - 改 `data/*.json` 后：数据非法会在 `init` panic，先 `go run . languages` 冒烟，再 `go test ./...`（漂移测试把关）；提交前 `make check`。
 - 决策变化落 ADR，新术语进 CONTEXT.md，用户可感知变化进 CHANGELOG.md。
+- 编辑 Python/Go/TypeScript 代码前，按 [.agents/skills/use-modern-guidelines/SKILL.md](.agents/skills/use-modern-guidelines/SKILL.md) 的工作流先查询准则。

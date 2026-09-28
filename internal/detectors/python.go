@@ -365,9 +365,7 @@ var pythonSpecifier = regexp.MustCompile(
 // Clause forms outside this subset are skipped rather than failing the whole
 // chain over one exotic manifest.
 func pythonSpecFloor(spec string) (string, bool) {
-	if marker := strings.Index(spec, ";"); marker >= 0 {
-		spec = spec[:marker] // drop PEP 508 environment markers
-	}
+	spec, _, _ = strings.Cut(spec, ";") // drop PEP 508 environment markers
 	floor := ""
 	for clause := range strings.SplitSeq(spec, ",") {
 		match := pythonSpecifier.FindStringSubmatch(clause)

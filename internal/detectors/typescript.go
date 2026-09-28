@@ -404,7 +404,7 @@ func readFirstLine(path string) (string, bool) {
 func semverRangeFloor(raw string) (string, bool) {
 	var best floorVersion
 	haveBest := false
-	for _, alternative := range strings.Split(raw, "||") {
+	for alternative := range strings.SplitSeq(raw, "||") {
 		setFloor, ok := comparatorSetFloor(alternative)
 		if !ok {
 			continue
@@ -424,7 +424,7 @@ func semverRangeFloor(raw string) (string, bool) {
 func comparatorSetFloor(alternative string) (floorVersion, bool) {
 	var result floorVersion
 	haveResult := false
-	for _, token := range strings.Fields(alternative) {
+	for token := range strings.FieldsSeq(alternative) {
 		if token == "-" { // hyphen-range separator: unsupported syntax
 			return floorVersion{}, false
 		}

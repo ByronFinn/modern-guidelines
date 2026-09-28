@@ -265,11 +265,8 @@ func parseModuleVersionFile(path string) (moduleVersionDirectives, error) {
 	seenGo := false
 	seenToolchain := false
 	blockDepth := 0
-	for _, rawLine := range strings.Split(string(data), "\n") {
-		line := rawLine
-		if comment := strings.Index(line, "//"); comment >= 0 {
-			line = line[:comment]
-		}
+	for rawLine := range strings.SplitSeq(string(data), "\n") {
+		line, _, _ := strings.Cut(rawLine, "//")
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
