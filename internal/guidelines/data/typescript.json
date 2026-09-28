@@ -1,0 +1,1561 @@
+{
+  "language": "typescript",
+  "axes": ["typescript", "node"],
+  "rules": [
+    {
+      "id": "native_compiler",
+      "since_version": "7.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Run type checks and builds with the TypeScript 7 native compiler instead of the JavaScript `tsc` where speed matters.",
+      "details": "TypeScript 7 is the native Go port: shared-memory parallelism and native code make type checking and builds often about 10x faster than TypeScript 6.0. Language capability tracks 6.0, but behavioral differences exist (for example, template literal types preserve Unicode code points). The npm package installs side-by-side with 6.0 — adopt it for CI and editor speedups, and do not blind-switch every tool in the chain.",
+      "references": ["TypeScript 7.0 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "tsc --noEmit",
+            "# JavaScript-implemented TypeScript 6.x: minutes on large repositories"
+          ],
+          "after": [
+            "tsc --noEmit",
+            "# TypeScript 7 native (Go) compiler, installed side-by-side with 6.0:",
+            "# often about 10x faster, same CLI surface"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "migrate_deprecated_compiler_options",
+      "since_version": "6.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Migrate off `--outFile` and amd/umd/system modules before upgrading to TypeScript 6.0, and off the options it deprecates (`--moduleResolution node10`, `--baseUrl`, `--target es5`) before TypeScript 7.0.",
+      "details": "TypeScript 6.0 is the deprecation-cleanup release on the road to 7.0, and it splits this list in two. Deprecated in 6.0 (usable behind `ignoreDeprecations: \"6.0\"`, removed entirely in 7.0): node10 resolution, `baseUrl`, the `es5` target. Removed in 6.0: `--outFile` is gone and the amd/umd/systemjs/none module values are no longer supported, so migrate off both before upgrading to 6.0. Moving off `baseUrl` means rewriting extensionless absolute imports to real relative paths, with `bundler` or `nodenext` resolution as the new truth.",
+      "references": ["TypeScript 6.0 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// tsconfig.json",
+            "{",
+            "  \"compilerOptions\": {",
+            "    \"moduleResolution\": \"node10\",",
+            "    \"baseUrl\": \"src\",",
+            "    \"target\": \"es5\",",
+            "    \"outFile\": \"build/bundle.js\"",
+            "  }",
+            "}"
+          ],
+          "after": [
+            "// tsconfig.json",
+            "{",
+            "  \"compilerOptions\": {",
+            "    \"moduleResolution\": \"bundler\", // or \"nodenext\" for Node-run code",
+            "    \"module\": \"esnext\",",
+            "    \"target\": \"es2015\" // or newer",
+            "  }",
+            "}",
+            "// \"@/util\" style imports become relative paths such as \"../util.js\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "subpath_imports",
+      "since_version": "6.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Low",
+      "guideline": "Use package.json `#` subpath imports instead of deep relative paths for intra-package imports.",
+      "details": "TypeScript 6.0 supports the package.json `imports` field, so `#/shared/result` replaces `../../../shared/result` and survives file moves during refactors. The feature needs the `imports` map in package.json plus a tsconfig resolution mode that honors it (`bundler` or `nodenext`); classic node10 resolution ignores the field.",
+      "references": ["TypeScript 6.0 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "import { Result } from \"../../../shared/result.js\";"
+          ],
+          "after": [
+            "import { Result } from \"#/shared/result.js\";",
+            "",
+            "// package.json",
+            "// { \"imports\": { \"#/shared/*\": \"./src/shared/*\" } }"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bundler_resolution_with_commonjs",
+      "since_version": "6.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Low",
+      "guideline": "Pair `--moduleResolution bundler` with `--module commonjs` when a bundler consumes sources but the output stays CommonJS.",
+      "details": "Before 6.0, `--moduleResolution bundler` required `--module esnext`, forcing toolchains that bundle TypeScript sources yet ship CommonJS output to masquerade as `nodenext`. TypeScript 6.0 lifts the restriction and allows the `bundler` plus `commonjs` combination. Only relevant to bundler pipelines that emit CJS; code executed directly by Node should stay on `nodenext`.",
+      "references": ["TypeScript 6.0 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// tsconfig.json — pre-6.0: had to claim ESM output",
+            "{ \"compilerOptions\": { \"module\": \"esnext\", \"moduleResolution\": \"bundler\" } }"
+          ],
+          "after": [
+            "// tsconfig.json — 6.0+: bundler resolution, CommonJS emit",
+            "{ \"compilerOptions\": { \"module\": \"commonjs\", \"moduleResolution\": \"bundler\" } }"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "target_es2025",
+      "since_version": "6.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Raise `target`/`lib` to `es2025` on TypeScript 6.0+ instead of hand-writing types for new platform features.",
+      "details": "TypeScript 6.0 adds the `es2025` target and lib with types for `RegExp.escape` and Temporal. Types are not runtime: `RegExp.escape` only executes on runtimes with V8 13.6 (Node 24 — see the node axis `regexp_escape` rule), and Temporal runtime support is still settling. Keep runtime gates in mind when the compiler accepts the call.",
+      "references": [
+        "TypeScript 6.0 announcement (devblogs.microsoft.com/typescript)",
+        "Node.js v24.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "// tsconfig: { \"target\": \"es2022\", \"lib\": [\"es2022\"] }",
+            "const escaped = myEscapeHelper(input); // hand-written, hand-typed"
+          ],
+          "after": [
+            "// tsconfig: { \"target\": \"es2025\", \"lib\": [\"es2025\"] }",
+            "const escaped = RegExp.escape(input);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "import_defer",
+      "since_version": "5.9",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Low",
+      "guideline": "Defer namespace imports with `import defer * as ns from` when module initialization cost dominates.",
+      "details": "`import defer * as ns from \"mod\"` postpones module evaluation until the namespace is first read, cutting the startup cost of dependencies whose initialization side effects you never use. It requires runtime support for deferred imports, so check the execution target before relying on it. The benefit is real only when module initialization is the measured cost.",
+      "references": ["TypeScript 5.9 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "import * as reportGenerator from \"./report-generator.js\";",
+            "// module body of report-generator runs at startup, even if unused here"
+          ],
+          "after": [
+            "import defer * as reportGenerator from \"./report-generator.js\";",
+            "// evaluation deferred until reportGenerator is first read"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module_node20",
+      "since_version": "5.9",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Pin `--module node20` (or `node18`) instead of `nodenext` to freeze Node resolution semantics across compiler upgrades.",
+      "details": "`--module nodenext` tracks whatever Node semantics the newest compiler knows, so upgrading TypeScript can silently change how imports resolve. TypeScript 5.9 adds `--module node20` (5.8 added `node18`) to pin resolution semantics to one Node line, keeping compiler upgrades from drifting resolution behavior. It requires the matching resolution mode.",
+      "references": ["TypeScript 5.9 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// tsconfig.json",
+            "{ \"compilerOptions\": { \"module\": \"nodenext\" } }",
+            "// resolution semantics drift with every compiler upgrade"
+          ],
+          "after": [
+            "// tsconfig.json",
+            "{ \"compilerOptions\": { \"module\": \"node20\" } }",
+            "// pinned to Node 20 resolution semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "erasable_syntax_only",
+      "since_version": "5.8",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Enable `--erasableSyntaxOnly` to keep the codebase free of TypeScript syntax that emits runtime code.",
+      "details": "`--erasableSyntaxOnly` rejects syntax with runtime semantics: enums, constructor parameter properties, and namespaces containing runtime code must move to erasable forms. This is the syntax precondition for running `.ts` directly on Node type stripping, and Node's recommended tsconfig includes it (see the node axis `type_stripping` rule). The migration cost is rewriting existing enums and parameter properties.",
+      "references": [
+        "TypeScript 5.8 announcement (devblogs.microsoft.com/typescript)",
+        "Node.js TypeScript module API docs"
+      ],
+      "examples": [
+        {
+          "before": [
+            "enum LogLevel {",
+            "  Debug,",
+            "  Info,",
+            "}",
+            "",
+            "class Logger {",
+            "  constructor(private readonly level: LogLevel = LogLevel.Info) {}",
+            "}"
+          ],
+          "after": [
+            "const LogLevel = {",
+            "  Debug: \"debug\",",
+            "  Info: \"info\",",
+            "} as const;",
+            "",
+            "type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];",
+            "",
+            "class Logger {",
+            "  private readonly level: LogLevel;",
+            "  constructor(level: LogLevel = LogLevel.Info) {",
+            "    this.level = level;",
+            "  }",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nodenext_require_esm",
+      "since_version": "5.8",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Modules",
+      "impact": "Medium",
+      "guideline": "Type `require()` calls that load ESM under `--module nodenext` instead of casting the result to `any`.",
+      "details": "Under `--module nodenext`, TypeScript 5.8 models `require()` of an ES module inside CommonJS files, so the call gets real types instead of hand-written casts. The runtime counterpart is Node's `require(esm)`, unflagged in v22.12.0 (see the node axis `require_esm` rule). It only works for synchronous ESM graphs: a required module with top-level await throws `ERR_REQUIRE_ASYNC_MODULE`.",
+      "references": [
+        "TypeScript 5.8 announcement (devblogs.microsoft.com/typescript)",
+        "Node.js v22.12.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "// CommonJS file, --module nodenext, TypeScript < 5.8",
+            "const { format } = require(\"./format.js\") as {",
+            "  format: (value: number) => string;",
+            "};"
+          ],
+          "after": [
+            "// CommonJS file, --module nodenext, TypeScript 5.8+",
+            "// types now come from ./format.js exports (Node 22.12+ require(esm))",
+            "const { format } = require(\"./format.js\");"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rewrite_relative_import_paths",
+      "since_version": "5.7",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Low",
+      "guideline": "Enable `--rewriteRelativeImportPaths` so declaration emit rewrites relative `.ts` import specifiers to `.js`.",
+      "details": "`--rewriteRelativeImportPaths` makes emitted declaration files rewrite relative `.ts` import specifiers to `.js`, removing publish-time path hacks in layouts where source and output extensions differ. It is aimed at complex outDir or monorepo layouts; projects with a single output directory that already import with `.js` extensions do not need it.",
+      "references": ["TypeScript 5.7 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// src/util.ts contains: import { helper } from \"./deps.ts\";",
+            "// emitted d.ts (flag off) keeps: import { helper } from \"./deps.ts\";"
+          ],
+          "after": [
+            "// tsconfig: { \"compilerOptions\": { \"rewriteRelativeImportPaths\": true } }",
+            "// emitted d.ts rewrites to: import { helper } from \"./deps.js\";"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "no_unchecked_side_effect_imports",
+      "since_version": "5.6",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Enable `--noUncheckedSideEffectImports` so unresolvable side-effect import paths fail compilation.",
+      "details": "`import \"./foo.css\"` is normally not resolved or checked, so a typo'd path fails silently at runtime. `--noUncheckedSideEffectImports` turns unresolvable side-effect import paths into compile-time errors. Loader pipelines (CSS modules, virtual modules) must keep their paths statically resolvable, or the flag will reject them.",
+      "references": ["TypeScript 5.6 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "import \"./styling.csss\"; // typo: silently ignored without the flag"
+          ],
+          "after": [
+            "// tsc --noUncheckedSideEffectImports",
+            "import \"./styling.css\"; // unresolvable paths now fail compilation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iterator_helpers",
+      "since_version": "5.6",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Lib & Target",
+      "impact": "Medium",
+      "guideline": "Use the built-in iterator helpers (`map`, `filter`, `take`, …) on iterables instead of hand-written loops or intermediate arrays.",
+      "details": "TypeScript 5.6 ships lib types for the built-in iterator helpers, so `iterable.map(...).filter(...).take(3).toArray()` chains lazily without collecting intermediate arrays. Runtime gate: the helpers ship in V8 from Chrome 122 onward; nodejs.org does not state the exact Node debut (UNVERIFIED in the research), so the conservative floor is Node 22, which carries V8 12.4.254.14.",
+      "references": [
+        "TypeScript 5.6 announcement (devblogs.microsoft.com/typescript)",
+        "Node.js v22.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "function* numbers() {",
+            "  yield 1; yield 2; yield 3; yield 4;",
+            "}",
+            "",
+            "const evens: number[] = [];",
+            "for (const n of numbers()) if (n % 2 === 0) evens.push(n);",
+            "const firstTwo = evens.slice(0, 2);"
+          ],
+          "after": [
+            "function* numbers() {",
+            "  yield 1; yield 2; yield 3; yield 4;",
+            "}",
+            "",
+            "const firstTwo = numbers()",
+            "  .filter((n) => n % 2 === 0)",
+            "  .take(2)",
+            "  .toArray();"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "no_check",
+      "since_version": "5.6",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Low",
+      "guideline": "Split CI into a fast `tsc --noCheck` build pass and a separate `tsc --noEmit` type-check pass.",
+      "details": "`tsc --noCheck` emits without type checking, letting large repositories run a fast build pass and a separate `tsc --noEmit` type-check pass in parallel in CI. It does not replace type checking — keep the `--noEmit` job gating merges. See the 5.6 announcement for the exact interaction with `--build` mode.",
+      "references": ["TypeScript 5.6 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// package.json",
+            "// \"build\": \"tsc -p .\" — emits and type checks in one slow pass"
+          ],
+          "after": [
+            "// package.json",
+            "// \"build\": \"tsc -p . --noCheck\",    // fast emit",
+            "// \"typecheck\": \"tsc -p . --noEmit\" // parallel CI job still gates merges"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inferred_type_predicates",
+      "since_version": "5.5",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "High",
+      "guideline": "Drop hand-written `x is T` annotations on simple boolean-returning functions; TypeScript 5.5 infers the type predicate.",
+      "details": "TypeScript 5.5 infers type predicates for functions that return boolean narrowing results about their parameters, so plain functions narrow in `filter` and guard positions without a hand-written `x is T` annotation. Arrow functions and function declarations both qualify (the official example is a declaration) when the function has no explicit return type annotation, a single return statement, no parameter mutation, and a boolean return tied to that narrowing; explicit return annotations, multi-return bodies, and more complex guards still need a hand-written `x is T`.",
+      "references": ["TypeScript 5.5 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "const isString = (value: unknown): value is string =>",
+            "  typeof value === \"string\";",
+            "",
+            "const strings = mixed.filter(isString);"
+          ],
+          "after": [
+            "const isString = (value: unknown) => typeof value === \"string\";",
+            "",
+            "// TypeScript 5.5 infers the predicate: value is string",
+            "const strings = mixed.filter(isString);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typed_set_methods",
+      "since_version": "5.5",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "Medium",
+      "guideline": "Use `Set.prototype.union`/`intersection`/`difference`/`symmetricDifference` instead of hand-written set-operation loops.",
+      "details": "TypeScript 5.5 types `Set.prototype.union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`, and friends, replacing hand-written loops that allocate intermediate Sets. Runtime gate: MDN Baseline 2024-06; nodejs.org does not name the exact Node debut (UNVERIFIED in the research), so the conservative floor is Node 22 — mirrored by the node axis `set_methods` rule.",
+      "references": [
+        "TypeScript 5.5 announcement (devblogs.microsoft.com/typescript)",
+        "MDN: Set.prototype.union"
+      ],
+      "examples": [
+        {
+          "before": [
+            "function union<T>(a: Set<T>, b: Set<T>): Set<T> {",
+            "  const result = new Set(a);",
+            "  for (const value of b) result.add(value);",
+            "  return result;",
+            "}",
+            "const tags = union(primary, secondary);"
+          ],
+          "after": [
+            "const tags = primary.union(secondary);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "config_dir_template",
+      "since_version": "5.5",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Use the `${configDir}` template variable in shared tsconfigs instead of `../shared`-style relative paths.",
+      "details": "Shared base tsconfigs historically broke because relative paths inside them resolve against the extending config's directory. The `${configDir}` template variable resolves against the config file that declares it, fixing monorepo `extends` setups. It is only meaningful inside a base config that other configs extend; a standalone tsconfig gains nothing from it.",
+      "references": ["TypeScript 5.5 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// shared/tsconfig.base.json — relative paths break depending on who extends",
+            "{ \"compilerOptions\": { \"paths\": { \"~/*\": [\"../src/*\"] } } }"
+          ],
+          "after": [
+            "// shared/tsconfig.base.json",
+            "{ \"compilerOptions\": { \"paths\": { \"~/*\": [\"${configDir}/src/*\"] } } }"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "regex_syntax_checking",
+      "since_version": "5.5",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Delete try/catch wrappers that only guard RegExp literal syntax; TypeScript 5.5 checks it at compile time.",
+      "details": "TypeScript 5.5 validates RegExp literal syntax at compile time, surfacing malformed patterns as editor errors instead of runtime exceptions, so try/catch wrappers that only guarded construction of a fixed literal can go. It checks syntax, not semantics, and dynamically concatenated pattern strings cannot be judged statically.",
+      "references": ["TypeScript 5.5 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "try {",
+            "  const pattern = /word(/ig; // typo: until 5.5, found only at runtime",
+            "  console.log(pattern.source);",
+            "} catch {",
+            "  console.error(\"bad pattern\");",
+            "}"
+          ],
+          "after": [
+            "const pattern = /word/ig; // TypeScript 5.5 flags malformed literals at compile time",
+            "console.log(pattern.source);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jsdoc_import",
+      "since_version": "5.5",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "Low",
+      "guideline": "Reuse `.ts`-declared types inside JavaScript files with the JSDoc `@import` tag instead of duplicating the shapes.",
+      "details": "In JavaScript files under `checkJs`, the JSDoc `@import` tag pulls named types from `.ts` modules, so a JS codebase can reuse declared types instead of duplicating object shapes in comments. It applies only to JavaScript files; TypeScript files import types directly.",
+      "references": ["TypeScript 5.5 announcement (devblogs.microsoft.com/typescript)"],
+      "examples": [
+        {
+          "before": [
+            "// app.js (checkJs)",
+            "/** @type {{ id: number, name: string }} */",
+            "let user;"
+          ],
+          "after": [
+            "// app.js (checkJs)",
+            "/** @import { User } from \"./types.ts\" */",
+            "/** @type {User} */",
+            "let user;"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "no_infer",
+      "since_version": "5.4",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "High",
+      "guideline": "Exclude a parameter from inference with `NoInfer<T>` instead of sentinel defaults or `never` tricks.",
+      "details": "`NoInfer<T>` marks a type parameter position as excluded from inference, fixing APIs where an optional parameter or default value polluted inference (the classic `createStreetLight` case) without `never` tricks or sentinel defaults. Do not use it when callers are supposed to influence `T` — bidirectional inference is then the desired behavior.",
+      "references": ["TypeScript 5.4 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "function createStreetLight<C extends string>(colors: C[], defaultColor?: C) {}",
+            "createStreetLight([\"red\", \"yellow\", \"green\"], \"blue\");",
+            "// \"blue\" widens C — no error before 5.4"
+          ],
+          "after": [
+            "function createStreetLight<C extends string>(",
+            "  colors: C[],",
+            "  defaultColor?: NoInfer<C>,",
+            ") {}",
+            "createStreetLight([\"red\", \"yellow\", \"green\"], \"blue\");",
+            "// error: \"blue\" is not assignable to C"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "preserved_narrowing_closures",
+      "since_version": "5.4",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "Medium",
+      "guideline": "Rely on TypeScript 5.4 preserving narrowing inside closures created after the variable's last assignment.",
+      "details": "TypeScript 5.4 preserves the narrowing of `let` variables inside closures created after the variable's last assignment, so callbacks no longer need to re-check a condition already established outside. A mutable variable that is reassigned after the closure is created still loses the narrowing — the guarantee covers the last-assignment point only.",
+      "references": ["TypeScript 5.4 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "function greet(name: string | null) {",
+            "  if (name === null) return;",
+            "  return [1, 2].map(() => {",
+            "    if (name === null) return \"\"; // re-check required before 5.4",
+            "    return `hello ${name}`;",
+            "  });",
+            "}"
+          ],
+          "after": [
+            "function greet(name: string | null) {",
+            "  if (name === null) return;",
+            "  return [1, 2].map(() => `hello ${name}`); // narrowing preserved, no re-check",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "group_by",
+      "since_version": "5.4",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Lib & Target",
+      "impact": "Medium",
+      "guideline": "Group collections with `Object.groupBy` / `Map.groupBy` instead of hand-rolled `reduce`.",
+      "details": "TypeScript 5.4 types `Object.groupBy` and `Map.groupBy`, replacing `reduce` boilerplate with keyed grouping whose result types are precise. Runtime gate: nodejs.org does not state the Node debut (UNVERIFIED in the research); the conservative floor is Node 22 with V8 12.4, matching MDN Baseline 2024-03.",
+      "references": [
+        "TypeScript 5.4 release notes (typescriptlang.org)",
+        "MDN: Object.groupBy"
+      ],
+      "examples": [
+        {
+          "before": [
+            "const byDept = employees.reduce<Record<string, Employee[]>>((acc, e) => {",
+            "  (acc[e.department] ??= []).push(e);",
+            "  return acc;",
+            "}, {});"
+          ],
+          "after": [
+            "const byDept = Object.groupBy(employees, (e) => e.department);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "import_attributes",
+      "since_version": "5.3",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Medium",
+      "guideline": "Write import attributes with `with { type: \"json\" }` — never the removed `assert` form.",
+      "details": "Import attributes replaced the `assert` keyword with `with`. This is not stylistic: Node 22 removes import assertions entirely (\"esm: drop support for import assertions\" in the v22.0.0 notes), so `assert` throws at runtime on current Node and `with` is the only working form.",
+      "references": [
+        "TypeScript 5.3 release notes (typescriptlang.org)",
+        "Node.js v22.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import data from \"./config.json\" assert { type: \"json\" }; // removed in Node 22"
+          ],
+          "after": [
+            "import data from \"./config.json\" with { type: \"json\" };"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "switch_true_narrowing",
+      "since_version": "5.3",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Low",
+      "guideline": "Collapse if/else discriminant chains into `switch (true)` for per-branch narrowing.",
+      "details": "TypeScript 5.3 narrows inside `switch (true)` branches, letting a discriminant chain collapse from if/else ladders into one switch where each case narrows its subject. This is an optional style choice: the narrowing benefit depends on writing case predicates the checker can use.",
+      "references": ["TypeScript 5.3 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "function area(shape: Circle | Square): number {",
+            "  if (shape.kind === \"circle\") return Math.PI * shape.r ** 2;",
+            "  else return shape.side ** 2;",
+            "}"
+          ],
+          "after": [
+            "function area(shape: Circle | Square): number {",
+            "  switch (true) {",
+            "    case shape.kind === \"circle\":",
+            "      return Math.PI * shape.r ** 2; // shape: Circle here",
+            "    default:",
+            "      return shape.side ** 2; // shape: Square here",
+            "  }",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "using_declarations",
+      "since_version": "5.2",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "High",
+      "guideline": "Release resources with `using` / `await using` declarations instead of try/finally cleanup.",
+      "details": "`using` and `await using` declarations call `Symbol.dispose`/`Symbol.asyncDispose` at scope exit, replacing try/finally cleanup and covering early returns and throws. The syntax lands in TypeScript 5.2, but syntax is not runtime: native execution requires explicit resource management, which Node 24's V8 13.6 ships — Node 22 and below need a polyfill or downlevel emit (node axis `explicit_resource_management`).",
+      "references": [
+        "TypeScript 5.2 release notes (typescriptlang.org)",
+        "Node.js v24.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "{",
+            "  const handle = openResource();",
+            "  try {",
+            "    handle.use();",
+            "  } finally {",
+            "    handle.close();",
+            "  }",
+            "}"
+          ],
+          "after": [
+            "{",
+            "  using handle = openResource(); // Symbol.dispose runs at scope exit",
+            "  handle.use();",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decorator_metadata",
+      "since_version": "5.2",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Low",
+      "guideline": "Expose decorator annotations through `Symbol.metadata` instead of hand-written metadata registries.",
+      "details": "Decorator metadata exposes per-decoration metadata through `Symbol.metadata`, letting frameworks read annotations from the decorated element instead of maintaining hand-written WeakMap registries keyed by class. Runtime support is still limited, and it only applies to standard decorators — legacy `--experimentalDecorators` code cannot use it.",
+      "references": ["TypeScript 5.2 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "const routeMetadata = new WeakMap<object, Record<string, string>>();",
+            "",
+            "function Route(path: string) {",
+            "  return (target: object, key: string) => {",
+            "    const existing = routeMetadata.get(target) ?? {};",
+            "    routeMetadata.set(target, { ...existing, [key]: path });",
+            "  };",
+            "}"
+          ],
+          "after": [
+            "function Route(path: string) {",
+            "  return (target: object, key: string, context: ClassMethodDecoratorContext) => {",
+            "    (context.metadata as Record<string, string>)[key] = path; // Symbol.metadata",
+            "  };",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "standard_decorators",
+      "since_version": "5.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "High",
+      "guideline": "Use TC39 stage-3 standard decorators for new code instead of legacy `--experimentalDecorators`.",
+      "details": "TypeScript 5.0 implements TC39 stage-3 decorators, which run natively instead of being transpiled into compiler-specific helpers. Their semantics differ completely from legacy `--experimentalDecorators`, so ecosystems that still require legacy (NestJS and friends) cannot switch yet. Node type stripping rejects decorators outright with a parser error (node axis `type_stripping`) — another reason to prefer standard decorators in new code.",
+      "references": [
+        "TypeScript 5.0 release notes (typescriptlang.org)",
+        "Node.js TypeScript module API docs"
+      ],
+      "examples": [
+        {
+          "before": [
+            "// tsconfig: { \"experimentalDecorators\": true }",
+            "@Component({ selector: \"profile\" })",
+            "class ProfileComponent {}"
+          ],
+          "after": [
+            "// tsconfig: standard decorators are the default; legacy flag removed",
+            "@register",
+            "class ProfileComponent {}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "const_type_parameters",
+      "since_version": "5.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "High",
+      "guideline": "Declare `<const T>` on generic functions to infer literal and tuple types without `as const` at call sites.",
+      "details": "`<const T>` makes the compiler infer the narrowest literal and tuple types from an argument, removing `as const` at call sites: `firstOf([\"a\", \"b\"])` infers `readonly [\"a\", \"b\"]`. It only affects inference positions; when the caller passes an explicit type argument, the `const` modifier has nothing to do.",
+      "references": ["TypeScript 5.0 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "function widest<T>(values: readonly T[]): T[] {",
+            "  return [...values];",
+            "}",
+            "const letters = widest([\"a\", \"b\"] as const); // as const needed to keep literals"
+          ],
+          "after": [
+            "function widest<const T>(values: readonly T[]): T[] {",
+            "  return [...values];",
+            "}",
+            "const letters = widest([\"a\", \"b\"]); // T inferred as readonly [\"a\", \"b\"]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module_resolution_bundler",
+      "since_version": "5.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Use `--moduleResolution bundler` for bundler-driven projects instead of `node`/`node10` resolution.",
+      "details": "`--moduleResolution bundler` models how bundlers actually resolve: extensionless relative imports and `package.json` `exports`, which `node`/`node10` resolution misrepresents for bundler-driven projects. It cannot be combined with `--module commonjs` until TypeScript 6.0 lifts the restriction, and it is wrong for code Node executes directly — use `nodenext` there.",
+      "references": ["TypeScript 5.0 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "// tsconfig.json",
+            "{ \"compilerOptions\": { \"moduleResolution\": \"node\" } }",
+            "// wrong for bundlers: ignores the exports map, forces extensioned imports"
+          ],
+          "after": [
+            "// tsconfig.json",
+            "{ \"compilerOptions\": { \"module\": \"esnext\", \"moduleResolution\": \"bundler\" } }"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verbatim_module_syntax",
+      "since_version": "5.0",
+      "axis": "typescript",
+      "autofix": "typescript-eslint:consistent-type-imports",
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Enable `--verbatimModuleSyntax` and mark type-only imports with `import type`.",
+      "details": "`--verbatimModuleSyntax` enforces one emit discipline: imports and exports are emitted exactly as written, so type-only imports must carry `import type`. Turning it on makes unmarked pure-type imports errors — migrate to `import type` first; typescript-eslint's `consistent-type-imports` fixes that mechanically. It matches the tsconfig Node recommends for running `.ts` directly (node axis `type_stripping`).",
+      "references": [
+        "TypeScript 5.0 release notes (typescriptlang.org)",
+        "typescript-eslint: consistent-type-imports"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import { Config, loadConfig } from \"./config.js\";",
+            "// Config is a type; unmarked, it breaks erasable emit"
+          ],
+          "after": [
+            "import type { Config } from \"./config.js\";",
+            "import { loadConfig } from \"./config.js\";"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "enum_union_types",
+      "since_version": "5.0",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "Medium",
+      "guideline": "Treat every enum as a union of unique member literal types — reference member types and narrow on them directly.",
+      "details": "The 5.0 enum overhaul makes every enum a union of unique member literal types — even enums with computed members — so member types can narrow and appear in type positions. The same overhaul adds two new errors: assigning an out-of-range literal to an enum type, and indirectly mixing string and number enum values.",
+      "references": ["TypeScript 5.0 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "enum Color { Red, Green, Blue }",
+            "",
+            "declare function fill(color: Color): void;",
+            "// before 5.0, member types such as Color.Red were not usable as types"
+          ],
+          "after": [
+            "enum Color { Red, Green, Blue }",
+            "",
+            "declare function fill(color: Color.Red): void; // member literal as a type",
+            "",
+            "declare const c: Color;",
+            "if (c === Color.Red) { /* c: Color.Red here */ }"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "satisfies_operator",
+      "since_version": "4.9",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "High",
+      "guideline": "Use `satisfies` to validate a value against a type without widening its inferred type.",
+      "details": "`satisfies` checks that a value is assignable to a type without changing the resulting type of the expression, keeping precise literal information that a plain annotation erases by retyping the variable. The check still contextually types the literal itself — the official palette example relies on this to validate RGB tuples — it just leaves the expression's inferred type in place. Prefer annotations at public API boundaries; overusing `satisfies` costs readability.",
+      "references": ["TypeScript 4.9 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "const config: Config = { retries: 3 };"
+          ],
+          "after": [
+            "const config = { retries: 3 } satisfies Config;",
+            "// config.retries keeps the literal type 3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "in_operator_narrowing",
+      "since_version": "4.9",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Type System",
+      "impact": "Medium",
+      "guideline": "Narrow unions on unlisted properties with the `in` operator instead of hand-written guard functions.",
+      "details": "When a property is not declared on every member of a union, `if (\"key\" in value)` narrows to the members that have it, replacing hand-written guards for objects that may carry extra keys. It narrows only unlisted properties — keys already declared on the union's types do not trigger narrowing.",
+      "references": ["TypeScript 4.9 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "interface RequestWithID { id: number }",
+            "interface PlainRequest {}",
+            "",
+            "function hasId(request: RequestWithID | PlainRequest): request is RequestWithID {",
+            "  return \"id\" in request; // hand-written guard, pre-4.9",
+            "}",
+            "",
+            "if (hasId(req)) console.log(req.id);"
+          ],
+          "after": [
+            "function handle(request: RequestWithID | PlainRequest) {",
+            "  if (\"id\" in request) {",
+            "    // TypeScript 4.9 narrows: request is RequestWithID",
+            "    console.log(request.id);",
+            "  }",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auto_accessors",
+      "since_version": "4.9",
+      "axis": "typescript",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Medium",
+      "guideline": "Replace getter/setter plus backing field with `accessor` class fields.",
+      "details": "An `accessor` class field replaces the getter/setter plus backing-field trio with one declaration, emitting the accessors for you, and aligns with standard decorator semantics for `@accessor` decorations. On downlevel targets TypeScript emits different support code — check the emitted output when targeting older runtimes.",
+      "references": ["TypeScript 4.9 release notes (typescriptlang.org)"],
+      "examples": [
+        {
+          "before": [
+            "class Slide {",
+            "  #visible = true;",
+            "",
+            "  get visible(): boolean {",
+            "    return this.#visible;",
+            "  }",
+            "",
+            "  set visible(value: boolean) {",
+            "    this.#visible = value;",
+            "  }",
+            "}"
+          ],
+          "after": [
+            "class Slide {",
+            "  accessor visible = true;",
+            "}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "regexp_escape",
+      "since_version": "24",
+      "axis": "node",
+      "autofix": null,
+      "category": "Language (V8)",
+      "impact": "Medium",
+      "guideline": "Escape user input for regex patterns with `RegExp.escape` instead of hand-written escape functions.",
+      "details": "`RegExp.escape` escapes arbitrary text for embedding in a regex, eliminating hand-written escape functions whose edge cases (dashes inside classes, `]` handling) breed bugs. It ships with Node 24's V8 13.6 — the v24.0.0 release notes name it explicitly. TypeScript needs `lib: es2025` (TS 6.0) to type the call (typescript axis `target_es2025`).",
+      "references": [
+        "Node.js v24.0.0 release notes",
+        "TypeScript 6.0 announcement (devblogs.microsoft.com/typescript)"
+      ],
+      "examples": [
+        {
+          "before": [
+            "function escapeRegExp(value: string): string {",
+            "  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, \"\\\\$&\"); // edge cases bite",
+            "}",
+            "const pattern = new RegExp(escapeRegExp(userInput));"
+          ],
+          "after": [
+            "const pattern = new RegExp(RegExp.escape(userInput)); // Node 24, V8 13.6"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "explicit_resource_management",
+      "since_version": "24",
+      "axis": "node",
+      "autofix": null,
+      "category": "Language (V8)",
+      "impact": "High",
+      "guideline": "Run `using`/`await using` natively on Node 24+ instead of shipping a polyfill or avoiding the syntax.",
+      "details": "Node 24's V8 13.6 ships explicit resource management, so `using` and `await using` execute natively, calling `Symbol.dispose`/`Symbol.asyncDispose` at scope exit. This is the runtime half of the pair: TypeScript 5.2 provides the syntax (typescript axis `using_declarations`), but Node 22 and below have no built-in support and need a polyfill or downlevel emit.",
+      "references": ["Node.js v24.0.0 release notes"],
+      "examples": [
+        {
+          "before": [
+            "// Node < 24: no native Symbol.dispose — polyfill, or stick to try/finally",
+            "const handle = openLog();",
+            "try {",
+            "  handle.write(event);",
+            "} finally {",
+            "  handle.close();",
+            "}"
+          ],
+          "after": [
+            "// Node 24: V8 13.6 ships explicit resource management",
+            "using handle = openLog(); // Symbol.dispose runs at scope exit",
+            "handle.write(event);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "type_stripping",
+      "since_version": "23.6",
+      "axis": "node",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Run `.ts` files directly with Node's built-in type stripping instead of a compile step for dev-time scripts.",
+      "details": "Node runs `.ts` natively by erasing types: added v22.6.0 behind a flag, enabled by default since v23.6.0 (v22.18.0), marked stable in v24.12.0/v25.2.0. Only erasable syntax is allowed — enums, runtime namespaces, parameter properties, and import aliases throw `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`; decorators are parser errors; `.tsx` is unsupported; tsconfig `paths` is ignored; and no type checking happens, so keep `tsc --noEmit` in CI. Pair with `--erasableSyntaxOnly` and `--verbatimModuleSyntax` (typescript axis).",
+      "references": ["Node.js TypeScript module API docs"],
+      "examples": [
+        {
+          "before": [
+            "tsc --outDir dist tool.ts && node dist/tool.js"
+          ],
+          "after": [
+            "node tool.ts # erasable syntax only; keep tsc --noEmit in CI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock_timers",
+      "since_version": "23.1",
+      "axis": "node",
+      "autofix": null,
+      "category": "Test",
+      "impact": "Medium",
+      "guideline": "Fake time with `node:test`'s `mock.timers` instead of sinon's fake timers.",
+      "details": "`node:test`'s `mock.timers` fakes `Date`, `setTimeout`, and friends, replacing sinon's fake timers for time-dependent cases. Added v20.4.0/v18.19.0 as experimental and stable since v23.1.0 — the gate used here. The API changed shape once: since v21.2.0/v20.11.0 the methods take a single options object, so older snippets may use the pre-options form.",
+      "references": ["Node.js test runner API docs"],
+      "examples": [
+        {
+          "before": [
+            "import sinon from \"sinon\";",
+            "",
+            "test(\"schedules reminder\", () => {",
+            "  const clock = sinon.useFakeTimers();",
+            "  scheduleReminder(60_000);",
+            "  clock.tick(60_000);",
+            "  clock.restore();",
+            "});"
+          ],
+          "after": [
+            "import { test, mock } from \"node:test\";",
+            "",
+            "test(\"schedules reminder\", () => {",
+            "  mock.timers.enable({ now: 0 });",
+            "  scheduleReminder(60_000);",
+            "  mock.timers.tick(60_000);",
+            "  mock.timers.reset();",
+            "});"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fs_glob",
+      "since_version": "22.17",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Medium",
+      "guideline": "Match file paths with `fs.glob`/`fs.globSync`/`fs.promises.glob` instead of the glob or fast-glob packages.",
+      "details": "`fs.glob`, `fs.globSync`, and `fs.promises.glob` cover common file-matching needs without a dependency: `fs.glob` returns an async iterator, `fs.promises.glob` resolves an array. Added in v22.0.0 as experimental and marked stable in v24.0.0 and v22.17.0 — the stable gate used here, since v22.0 through v22.16 ran it experimentally.",
+      "references": [
+        "Node.js fs API docs",
+        "Node.js v22.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import { glob } from \"fast-glob\";",
+            "",
+            "const files = await glob(\"src/**/*.test.ts\");"
+          ],
+          "after": [
+            "import { glob } from \"node:fs/promises\";",
+            "",
+            "const files = await glob(\"src/**/*.test.ts\");",
+            "// or: import { glob } from \"node:fs\" for the async-iterator form"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "partial_deep_strict_equal",
+      "since_version": "22.17",
+      "axis": "node",
+      "autofix": null,
+      "category": "Test",
+      "impact": "Medium",
+      "guideline": "Assert only the fields you care about with `assert.partialDeepStrictEqual` instead of hand-picking subsets.",
+      "details": "`assert.partialDeepStrictEqual(actual, expected)` passes when `expected` deep-matches inside `actual`, so tests lock only the fields they care about instead of asserting whole objects brittlely. Added v23.4.0/v22.13.0 as experimental, stable in v24.0.0/v22.17.0 — the stable gate. v25 refines equality semantics (same-instance Promises, Invalid Date handling).",
+      "references": ["Node.js assert API docs"],
+      "examples": [
+        {
+          "before": [
+            "assert.deepStrictEqual({ id: user.id, email: user.email }, {",
+            "  id: 42,",
+            "  email: \"a@example.com\",",
+            "});"
+          ],
+          "after": [
+            "assert.partialDeepStrictEqual(user, {",
+            "  id: 42,",
+            "  email: \"a@example.com\",",
+            "});"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "style_text",
+      "since_version": "22.13",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Medium",
+      "guideline": "Color terminal output with `util.styleText` instead of chalk or picocolors.",
+      "details": "`util.styleText(format, text)` colors terminal output without a dependency. Added v21.7.0/v20.12.0 and stable since v23.5.0/v22.13.0 — the stable gate. Only from v22.8.0/v20.18.0 does it respect `isTTY`, `NO_COLOR`, and `FORCE_COLOR`, so on older lines the environment contract does not hold.",
+      "references": ["Node.js util API docs"],
+      "examples": [
+        {
+          "before": [
+            "import chalk from \"chalk\";",
+            "",
+            "console.log(chalk.red(\"failed\"), chalk.bold(\"see logs\"));"
+          ],
+          "after": [
+            "import { styleText } from \"node:util\";",
+            "",
+            "console.log(styleText(\"red\", \"failed\"), styleText(\"bold\", \"see logs\"));"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sqlite_module",
+      "since_version": "22.13",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Low",
+      "guideline": "Prefer the built-in `node:sqlite` module over better-sqlite3 for low-stakes embedded storage, after checking its experimental status.",
+      "details": "The built-in `node:sqlite` module (a `DatabaseSync` client) covers embedded SQL without better-sqlite3. Added v22.5.0 behind `--experimental-sqlite`; the flag requirement was lifted in v23.4.0/v22.13.0 — the gate — but the module remains experimental on 22/24, reaching RC only in v25.7.0. It must be imported with the `node:` prefix; weigh stability before replacing better-sqlite3 in production.",
+      "references": ["Node.js sqlite API docs"],
+      "examples": [
+        {
+          "before": [
+            "import Database from \"better-sqlite3\";",
+            "",
+            "const db = new Database(\"app.db\");",
+            "db.exec(\"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)\");"
+          ],
+          "after": [
+            "import { DatabaseSync } from \"node:sqlite\"; // node: prefix required",
+            "",
+            "const db = new DatabaseSync(\"app.db\");",
+            "db.exec(\"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)\");"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "require_esm",
+      "since_version": "22.12",
+      "axis": "node",
+      "autofix": null,
+      "category": "Modules",
+      "impact": "High",
+      "guideline": "Load ES modules from CommonJS with `require()` on Node 22.12+ instead of dynamic `import()` workarounds.",
+      "details": "Since v22.12.0, CommonJS `require()` can load ES modules synchronously, letting CJS codebases absorb ESM dependencies incrementally instead of going all-or-nothing on `import()`. It applies to synchronous ESM graphs only — a required module with top-level await throws `ERR_REQUIRE_ASYNC_MODULE`. Detect availability with `process.features.require_module`; for typing, use `--module nodenext` (typescript axis `nodenext_require_esm`).",
+      "references": [
+        "Node.js v22.12.0 release notes",
+        "Node.js modules API docs"
+      ],
+      "examples": [
+        {
+          "before": [
+            "// CommonJS before 22.12: dynamic import is the only bridge",
+            "const { formatBytes } = await import(\"./format-lib.js\");"
+          ],
+          "after": [
+            "// CommonJS on Node 22.12+: synchronous require of ESM",
+            "const { formatBytes } = require(\"./format-lib.js\");"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fs_cp",
+      "since_version": "22.3",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Medium",
+      "guideline": "Copy directory trees with `fs.promises.cp(src, dest, { recursive: true })` instead of fs-extra.",
+      "details": "`fs.promises.cp(src, dest, { recursive: true })` copies directory trees, retiring the fs-extra dependency for copy operations. `fsPromises.cp` was added v16.7.0 but stayed experimental until v22.3.0 — the stable gate used here. Sync and callback variants exist with the same options.",
+      "references": ["Node.js fs API docs"],
+      "examples": [
+        {
+          "before": [
+            "import fsExtra from \"fs-extra\";",
+            "",
+            "await fsExtra.copy(\"dist\", \"deploy\", { recursive: true });"
+          ],
+          "after": [
+            "import { cp } from \"node:fs/promises\";",
+            "",
+            "await cp(\"dist\", \"deploy\", { recursive: true });"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "array_from_async",
+      "since_version": "22",
+      "axis": "node",
+      "autofix": null,
+      "category": "Language (V8)",
+      "impact": "Medium",
+      "guideline": "Collect async iterables with `Array.fromAsync` instead of manual `for await` accumulation loops.",
+      "details": "`Array.fromAsync(iterable)` collects an async iterable into an array in one expression, replacing manual `for await` accumulation. It awaits each yielded value sequentially — MDN contrasts it with `Promise.all`, which awaits concurrently — so it is not a parallelism tool. Node's exact debut is UNVERIFIED in the research (nodejs.org is silent; MDN's compat table did not render); the conservative gate is Node 22, which ships V8 12.4.254.14.",
+      "references": [
+        "MDN: Array.fromAsync",
+        "Node.js v22.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "const results: Result[] = [];",
+            "for await (const item of source) {",
+            "  results.push(transform(item));",
+            "}"
+          ],
+          "after": [
+            "const results = await Array.fromAsync(source, transform);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "promise_with_resolvers",
+      "since_version": "22",
+      "axis": "node",
+      "autofix": null,
+      "category": "Language (V8)",
+      "impact": "Low",
+      "guideline": "Create externally-resolvable promises with `Promise.withResolvers()` instead of external `let resolve`/`let reject` declarations.",
+      "details": "`Promise.withResolvers()` returns `{ promise, resolve, reject }` with the controllers in the same scope as the promise, removing the external `let resolve; let reject;` dance in event-driven code. Node's exact debut is UNVERIFIED in the research (nodejs.org is silent; MDN's compat table did not render); the conservative gate is Node 22 (V8 12.4.254.14, MDN Baseline 2024-03). TypeScript needs a recent lib for the types.",
+      "references": ["MDN: Promise.withResolvers"],
+      "examples": [
+        {
+          "before": [
+            "let resolve!: (value: number) => void;",
+            "let reject!: (reason: unknown) => void;",
+            "const ready = new Promise<number>((res, rej) => {",
+            "  resolve = res;",
+            "  reject = rej;",
+            "});"
+          ],
+          "after": [
+            "const { promise: ready, resolve, reject } = Promise.withResolvers<number>();"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "set_methods",
+      "since_version": "22",
+      "axis": "node",
+      "autofix": null,
+      "category": "Language (V8)",
+      "impact": "Medium",
+      "guideline": "Compute set unions, intersections, and differences with `Set.prototype.union` and friends instead of hand-written loops.",
+      "details": "`Set.prototype.union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, and `isDisjointFrom` make set algebra engine-guaranteed instead of loop-and-hope. Node's exact debut is UNVERIFIED in the research (nodejs.org does not name it; MDN Baseline 2024-06); the conservative gate is Node 22 with V8 12.4. TypeScript types arrive in 5.5 (typescript axis `typed_set_methods`).",
+      "references": [
+        "MDN: Set.prototype.union",
+        "TypeScript 5.5 announcement (devblogs.microsoft.com/typescript)"
+      ],
+      "examples": [
+        {
+          "before": [
+            "function difference<T>(a: Set<T>, b: Set<T>): Set<T> {",
+            "  const out = new Set(a);",
+            "  for (const value of b) out.delete(value);",
+            "  return out;",
+            "}",
+            "",
+            "const stale = difference(installed, active);"
+          ],
+          "after": [
+            "const stale = installed.difference(active);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "watch_mode",
+      "since_version": "22",
+      "axis": "node",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Restart on file changes with `node --watch` instead of nodemon.",
+      "details": "`node --watch` restarts the process when watched files change, replacing nodemon for development loops. Added v18.11.0 as experimental (\"cli: add --watch\") and marked stable in v22.0.0 — the gate. Watch is process restart, not hot reload; the test runner has its own `node --test --watch` mode.",
+      "references": [
+        "Node.js v18.11.0 release notes",
+        "Node.js v22.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "npx nodemon server.js"
+          ],
+          "after": [
+            "node --watch server.js"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node_run",
+      "since_version": "22",
+      "axis": "node",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Low",
+      "guideline": "Run package.json scripts with `node --run <script>` instead of `npm run <script>` where npm's startup cost dominates.",
+      "details": "`node --run <script>` executes a package.json script without spawning an npm process, saving npm's startup cost in loops and CI. Added v22.0.0. It does not run npm lifecycle hooks (`pre`/`post` scripts), so it is not a drop-in replacement where hooks do real work.",
+      "references": [
+        "Node.js v22.0.0 release notes",
+        "Node.js CLI API docs"
+      ],
+      "examples": [
+        {
+          "before": [
+            "npm run generate"
+          ],
+          "after": [
+            "node --run generate # skips npm startup; no lifecycle hooks"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "global_websocket",
+      "since_version": "22",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Medium",
+      "guideline": "Use the global `WebSocket` client instead of the `ws` package for client-side connections.",
+      "details": "A standards-shaped `WebSocket` client is global since v22.0.0 (exposed v21.0.0/v20.10.0, flag removed v22.0.0, no longer experimental v22.4.0), dropping the `ws` dependency for client-side connections. It is a client API: `ws` remains the tool for servers and for advanced options the global class does not expose.",
+      "references": [
+        "Node.js globals API docs",
+        "Node.js v22.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import WebSocket from \"ws\";",
+            "",
+            "const socket = new WebSocket(\"wss://example.com/feed\");"
+          ],
+          "after": [
+            "const socket = new WebSocket(\"wss://example.com/feed\");"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "global_fetch",
+      "since_version": "21",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "High",
+      "guideline": "Use the global `fetch` — with `FormData`, `Headers`, `Request`, `Response` — instead of axios or node-fetch.",
+      "details": "The global `fetch` became stable in v21.0.0 (\"stable fetch and WebStreams\"); v18.0.0 removed the flag but kept the experimental label through Node 20, so 21 is the strict gate. It is built on undici: no browser-style cookie jar, and some web semantics differ. `AbortSignal.timeout` (v17.3.0) pairs well with it for deadlines.",
+      "references": [
+        "Node.js globals API docs",
+        "Node.js v21.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import axios from \"axios\";",
+            "",
+            "const response = await axios.get(url, { timeout: 5000 });"
+          ],
+          "after": [
+            "const response = await fetch(url, {",
+            "  signal: AbortSignal.timeout(5000),",
+            "});"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "env_file",
+      "since_version": "20.6",
+      "axis": "node",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Load environment files with `node --env-file` (or `process.loadEnvFile()`) instead of dotenv.",
+      "details": "`node --env-file=.env` loads environment files without dotenv, and `process.loadEnvFile()` (v21.7.0/v20.12.0) does it in-process. `--env-file` was added v20.6.0 and left experimental only in v24.10.0/v22.21.0 — treat 20.6 as the floor. A missing file errors; use `--env-file-if-exists` (v22.9+) for optional files. `NODE_OPTIONS` set inside an env file has no effect.",
+      "references": [
+        "Node.js CLI API docs",
+        "Node.js process API docs"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import dotenv from \"dotenv\";",
+            "",
+            "dotenv.config();",
+            "const port = process.env.PORT;"
+          ],
+          "after": [
+            "// package.json: \"start\": \"node --env-file=.env app.js\"",
+            "const port = process.env.PORT;"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "import_meta_resolve",
+      "since_version": "20.6",
+      "axis": "node",
+      "autofix": null,
+      "category": "Modules",
+      "impact": "Medium",
+      "guideline": "Resolve module specifiers with `import.meta.resolve(specifier)` instead of hand-built URL path logic.",
+      "details": "`import.meta.resolve(specifier)` resolves a specifier against the current module and returns the URL string synchronously — no `--experimental-import-meta-resolve` flag since v20.6.0/v18.19.0, and the `import.meta` properties graduated in Node 24. It works only inside ES modules, and the non-standard `parentURL` second parameter remains flagged.",
+      "references": [
+        "Node.js ESM API docs",
+        "Node.js v24.0.0 release notes"
+      ],
+      "examples": [
+        {
+          "before": [
+            "const helperUrl = new URL(\"./helper.js\", import.meta.url).href;",
+            "// guesses resolution by hand; breaks with exports maps"
+          ],
+          "after": [
+            "const helperUrl = import.meta.resolve(\"./helper.js\");"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parse_args",
+      "since_version": "20",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Medium",
+      "guideline": "Parse simple flags and positionals with `util.parseArgs` instead of commander or yargs.",
+      "details": "`util.parseArgs` parses options and positional arguments — added v18.3.0/v16.17.0, non-experimental since v20.0.0 (the gate). It deliberately covers only `options` plus `positionals`: no subcommands, no help-text generation, no coercion framework. CLIs needing those still justify commander or yargs.",
+      "references": ["Node.js util API docs"],
+      "examples": [
+        {
+          "before": [
+            "import { program } from \"commander\";",
+            "",
+            "program",
+            "  .option(\"--minify\")",
+            "  .parse();",
+            "const minify = program.opts().minify ?? false;"
+          ],
+          "after": [
+            "import { parseArgs } from \"node:util\";",
+            "",
+            "const { values } = parseArgs({",
+            "  options: { minify: { type: \"boolean\" } },",
+            "});",
+            "const minify = values.minify ?? false;"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "test_runner",
+      "since_version": "20",
+      "axis": "node",
+      "autofix": null,
+      "category": "Test",
+      "impact": "High",
+      "guideline": "Write tests with the built-in `node:test` runner and `node:assert/strict` instead of jest or mocha when you do not need their extras.",
+      "details": "The built-in `node:test` runner runs tests with zero install — added v18.0.0/v16.17.0, stable since v20.0.0 (the gate). `describe` blocks arrive in v20.13.0/v22.0.0; snapshot testing left experimental in v22.3.0/v23.4.0. Its mocking and snapshot story is thinner than jest's — compare your feature usage before migrating.",
+      "references": ["Node.js test runner API docs"],
+      "examples": [
+        {
+          "before": [
+            "import { describe, it, expect } from \"@jest/globals\";",
+            "",
+            "describe(\"money\", () => {",
+            "  it(\"adds\", () => expect(add(1, 1)).toBe(2));",
+            "});"
+          ],
+          "after": [
+            "import { test } from \"node:test\";",
+            "import assert from \"node:assert/strict\";",
+            "",
+            "test(\"adds\", () => assert.equal(add(1, 1), 2));"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "structured_clone",
+      "since_version": "17",
+      "axis": "node",
+      "autofix": null,
+      "category": "Standard Library",
+      "impact": "Medium",
+      "guideline": "Deep-copy values with `structuredClone` instead of `JSON.parse(JSON.stringify(x))`.",
+      "details": "`structuredClone` deep-copies while preserving `Map`, `Set`, `Date`, typed arrays, and cycles — everything `JSON.parse(JSON.stringify(x))` silently corrupts. It throws on functions and unsupported objects instead of dropping them, so cloning failures surface loudly; treat an error as a signal that the value is not plain data.",
+      "references": ["Node.js globals API docs"],
+      "examples": [
+        {
+          "before": [
+            "const copy = JSON.parse(JSON.stringify(value));"
+          ],
+          "after": [
+            "const copy = structuredClone(value);"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node_prefix_imports",
+      "since_version": "16",
+      "axis": "node",
+      "autofix": null,
+      "category": "Modules",
+      "impact": "Medium",
+      "guideline": "Import Node built-ins through the `node:` prefix, e.g. `require(\"node:fs\")` or `import { readFile } from \"node:fs\"`.",
+      "details": "The `node:` import prefix for `require()` is supported since v16.0.0/v14.18.0. It bypasses the require cache and any shadowing of core module names by installed packages. Some modules require it outright: `node:test` and `node:sqlite` cannot be required unprefixed.",
+      "references": ["Node.js modules API docs"],
+      "examples": [
+        {
+          "before": [
+            "const { readFile } = require(\"fs\");"
+          ],
+          "after": [
+            "const { readFile } = require(\"node:fs\");",
+            "// or: import { readFile } from \"node:fs\";"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "esm_explicit_extensions",
+      "since_version": "16",
+      "axis": "node",
+      "autofix": null,
+      "category": "Modules",
+      "impact": "High",
+      "guideline": "Write ES module relative imports with explicit file extensions.",
+      "details": "Node ES modules resolve relative and absolute specifiers strictly: a file extension must be provided, directory indexes must be fully specified, and there are no default extensions or folder mains. In TypeScript the `.js` specifier refers to the emitted file even when the source is `.ts`; `--rewriteRelativeImportExtensions` (TS 5.7) rewrites on emit. Note that `engines.node` is advisory only — it neither blocks install nor enforces the floor, so verify the runtime in CI.",
+      "references": [
+        "Node.js ESM API docs",
+        "TypeScript 5.7 announcement (devblogs.microsoft.com/typescript)"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import { helper } from \"./utils\"; // Node ESM: ERR_MODULE_NOT_FOUND"
+          ],
+          "after": [
+            "import { helper } from \"./utils.js\"; // .js even when the source is utils.ts"
+          ]
+        }
+      ]
+    }
+  ]
+}

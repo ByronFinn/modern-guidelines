@@ -1,0 +1,13 @@
+modern-guidelines
+Copyright 2026 the modern-guidelines authors
+
+This product includes software and guideline data adapted from
+JetBrains/go-modern-guidelines
+(https://github.com/JetBrains/go-modern-guidelines),
+Copyright JetBrains s.r.o., licensed under the Apache License, Version 2.0.
+
+The Go guideline dataset under internal/guidelines/data/go.json is derived
+from the JetBrains/go-modern-guidelines guideline data via a one-shot,
+commit-locked ingestion snapshot (see scripts/ingest-jetbrains-go). It is a
+forked snapshot, not a vendored copy, and is re-ingested and diff-reviewed
+only when the upstream project ships a new minor release.

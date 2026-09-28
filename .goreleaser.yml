@@ -1,0 +1,41 @@
+# Release configuration for the `mg` single static binary (PRD-0000 Req 9/13).
+# Channels: GitHub Releases archives (this file) + `go install` (module tags).
+version: 2
+
+project_name: mg
+
+builds:
+  - id: mg
+    main: .
+    binary: mg
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

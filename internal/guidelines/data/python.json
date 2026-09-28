@@ -1,0 +1,2079 @@
+{
+  "language": "python",
+  "rules": [
+    {
+      "id": "utf8_default_encoding",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "IO",
+      "impact": "High",
+      "guideline": "On 3.15+, rely on UTF-8 as the default text encoding and pass `encoding` only for non-UTF-8 data or legacy locale semantics.",
+      "details": "PEP 686 flips the default: I/O opened without an explicit encoding now uses UTF-8, so blanket `encoding=\"utf-8\"` becomes redundant and the 3.10 `explicit_encoding_open` advice reverses for projects floored at 3.15 or newer; keep passing it explicitly below 3.15. Non-UTF-8 data still needs an explicit encoding; use `encoding=\"locale\"` or `PYTHONUTF8=0` / `-X utf8=0` for legacy behavior. Windows is most affected. Written from the 3.15 rc2 draft whatsnew; re-verify after final.",
+      "references": ["PEP 686", "whatsnew/3.15"],
+      "examples": [
+        {
+          "before": [
+            "def read_config(path):",
+            "    # defensive utf-8 was the rule before 3.15",
+            "    with open(path, encoding=\"utf-8\") as fh:",
+            "        return fh.read()"
+          ],
+          "after": [
+            "def read_config(path):",
+            "    # UTF-8 is the default since 3.15 (PEP 686)",
+            "    with open(path) as fh:",
+            "        return fh.read()",
+            "",
+            "",
+            "def read_legacy(path):",
+            "    # pre-3.15 locale data still needs an explicit encoding",
+            "    with open(path, encoding=\"locale\") as fh:",
+            "        return fh.read()"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sentinel_builtin",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Builtins",
+      "impact": "Medium",
+      "guideline": "Use the built-in `sentinel` type instead of module-level `object()` sentinels.",
+      "details": "PEP 661 ships a pickleable built-in sentinel with a stable repr and stable identity, replacing hand-rolled `_MISSING = object()` markers that survive no pickle round-trip and print as bare object addresses. It composes with `|` so signatures can read `sentinel | None`. Written from the 3.15 rc2 draft whatsnew; re-verify the exact API after the final release.",
+      "references": ["PEP 661", "whatsnew/3.15#pep-661-add-sentinel-built-in-type"],
+      "examples": [
+        {
+          "before": [
+            "_MISSING = object()",
+            "",
+            "",
+            "def get(key, default=_MISSING):",
+            "    if default is _MISSING:",
+            "        raise KeyError(key)  # unpicklable default, opaque repr"
+          ],
+          "after": [
+            "def get(key, default=sentinel):",
+            "    if default is sentinel:",
+            "        raise KeyError(key)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frozendict_builtin",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Builtins",
+      "impact": "Medium",
+      "guideline": "Store immutable mapping data in the built-in `frozendict` instead of `types.MappingProxyType` or third-party frozen maps.",
+      "details": "PEP 814 adds an immutable, hashable, insertion-order-preserving built-in mapping. Unlike `MappingProxyType`, which is only a view over an underlying dict that can still mutate, `frozendict` owns its storage, so it is safe to share, cache, and use as a dict key or set element. Written from the 3.15 rc2 draft whatsnew; re-verify after the final release.",
+      "references": ["PEP 814", "whatsnew/3.15#pep-814-add-frozendict-built-in-type"],
+      "examples": [
+        {
+          "before": [
+            "from types import MappingProxyType",
+            "",
+            "DEFAULTS = MappingProxyType(base_defaults)  # still mutable via base_defaults"
+          ],
+          "after": [
+            "DEFAULTS = frozendict(base_defaults)  # immutable, hashable, order-preserving"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lazy_import_keyword",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Imports",
+      "impact": "Medium",
+      "guideline": "Defer expensive optional imports with the `lazy import` soft keyword instead of function-local imports.",
+      "details": "PEP 810's `lazy import` loads the module on first attribute access, so heavyweight optional dependencies stop taxing startup while the import stays at module top level where linters and type checkers can see it. Load errors surface at first use rather than at import time. Written from the 3.15 rc2 draft whatsnew; re-verify against the final release.",
+      "references": ["PEP 810", "whatsnew/3.15#pep-810-explicit-lazy-imports"],
+      "examples": [
+        {
+          "before": [
+            "def render(chart):",
+            "    import matplotlib.pyplot as plt  # hidden from linters, hit every call",
+            "    ..."
+          ],
+          "after": [
+            "lazy import matplotlib.pyplot as plt  # loaded on first use",
+            "",
+            "",
+            "def render(chart):",
+            "    ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "comprehension_unpacking",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Medium",
+      "guideline": "Flatten and merge inside comprehensions with unpacking (`[*xs for xs in groups]`, `{**d for d in dicts}`) instead of hand-written accumulation loops.",
+      "details": "PEP 798 permits unpacking in comprehensions and generator expressions: `[*xs for xs in groups]` flattens nested iterables and `{**d for d in dicts}` merges mappings, replacing manual accumulation loops or `itertools.chain.from_iterable` in the eager cases. Generator expressions take the same syntax. Written from the 3.15 rc2 draft whatsnew; re-verify after the final release.",
+      "references": ["PEP 798", "whatsnew/3.15#pep-798-unpacking-in-comprehensions"],
+      "examples": [
+        {
+          "before": [
+            "from itertools import chain",
+            "",
+            "flat = list(chain.from_iterable(chunks))",
+            "merged = {}",
+            "for part in configs:",
+            "    merged.update(part)"
+          ],
+          "after": [
+            "flat = [*chunk for chunk in chunks]",
+            "merged = {**part for part in configs}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "taskgroup_cancel_api",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Async",
+      "impact": "Low",
+      "guideline": "Stop a running `asyncio.TaskGroup` with its `cancel()` method instead of cancelling inner tasks or signalling through side channels.",
+      "details": "TaskGroups previously had no first-party way for surrounding code to stop the group early; 3.15 adds `TaskGroup.cancel()` for early task-group termination, propagating cancellation to every child task from one call. Prefer it over cancelling inner tasks one by one or routing through a shared event flag. Written from the 3.15 rc2 draft whatsnew; re-verify after the final release.",
+      "references": ["whatsnew/3.15 (asyncio)"],
+      "examples": [
+        {
+          "before": [
+            "stop = asyncio.Event()",
+            "",
+            "async with asyncio.TaskGroup() as tg:",
+            "    tg.create_task(poll(stop))",
+            "    tg.create_task(refresh(stop))",
+            "",
+            "# stopping the group meant flipping the event and",
+            "# cancelling inner tasks one by one"
+          ],
+          "after": [
+            "async with asyncio.TaskGroup() as tg:",
+            "    tg.create_task(poll())",
+            "    tg.create_task(refresh())",
+            "    if should_stop:",
+            "        tg.cancel()  # early termination of every child task"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_type_form",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Annotate class-or-factory parameters with `typing.TypeForm` instead of `type[T]`.",
+      "details": "`type[T]` accepts only what `type(...)` produces, silently excluding metaclass-made classes and factory callables; PEP 747's `TypeForm[T]` describes the full class-like argument space and matches what checkers infer from `x = SomeClass`. It is a static-checking construct with no runtime effect, aligned with the earlier typing_extensions experiment. Written from the 3.15 rc2 draft whatsnew; re-verify after final.",
+      "references": ["PEP 747", "whatsnew/3.15"],
+      "examples": [
+        {
+          "before": [
+            "from typing import TypeVar",
+            "",
+            "T = TypeVar(\"T\", bound=Plugin)",
+            "",
+            "",
+            "def register(cls: type[T]) -> None: ...  # rejects factories, metaclass classes"
+          ],
+          "after": [
+            "from typing import TypeForm",
+            "",
+            "",
+            "def register(cls: TypeForm[Plugin]) -> None: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "closed_typeddict",
+      "since_version": "3.15",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Reject unknown keys statically with `class Config(TypedDict, closed=True)` instead of hand-rolled `__extra_items__` conventions.",
+      "details": "PEP 728 adds closed TypedDicts: `closed=True` makes type checkers flag extra keys, and `extra_items` types whatever unknown keys a caller may still pass, replacing ad-hoc validation docstrings and custom `__extra_items__` markers. It binds static checkers only; runtime dicts keep accepting any keys. Written from the 3.15 rc2 draft whatsnew; re-verify after the final release.",
+      "references": ["PEP 728", "whatsnew/3.15"],
+      "examples": [
+        {
+          "before": [
+            "from typing import TypedDict",
+            "",
+            "",
+            "class Config(TypedDict):",
+            "    retries: int",
+            "    # unknown keys pass static checks unchecked"
+          ],
+          "after": [
+            "from typing import TypedDict",
+            "",
+            "",
+            "class Config(TypedDict, closed=True):",
+            "    retries: int"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deferred_annotations",
+      "since_version": "3.14",
+      "autofix": "ruff:UP037",
+      "category": "Typing",
+      "impact": "High",
+      "guideline": "Write annotations as bare names instead of quoted forward references; PEP 649 lazy evaluation makes `from __future__ import annotations` unnecessary.",
+      "details": "Annotations are evaluated lazily by default since 3.14, so quoted forward references like `-> \"Node\"` and a blanket `from __future__ import annotations` become unnecessary. `__annotations__` access semantics changed — code reading annotations directly should move to `annotationlib`; the future import stays legal but no longer needed. The autofix only strips quoted annotations.",
+      "references": [
+        "PEP 649",
+        "whatsnew/3.14#pep-649-pep-749-deferred-evaluation-of-annotations"
+      ],
+      "examples": [
+        {
+          "before": [
+            "from __future__ import annotations",
+            "",
+            "class Node:",
+            "    def children(self) -> list[\"Node\"]: ..."
+          ],
+          "after": ["class Node:", "    def children(self) -> list[Node]: ..."]
+        }
+      ]
+    },
+    {
+      "id": "map_strict",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Collections",
+      "impact": "Medium",
+      "guideline": "Pass `strict=True` to `map()` when mapping over multiple iterables that must have equal lengths.",
+      "details": "`map()` still stops at the shortest input by default; `map(f, a, b, strict=True)` (3.14) raises `ValueError` when one iterable is exhausted before the others, matching `zip(strict=True)`. This changes the failure mode of code that relied on silent truncation, so audit multi-iterable `map()` calls before flipping the flag; the ruff check is B912, not a UP autofix.",
+      "references": ["whatsnew/3.14 (built-ins)"],
+      "examples": [
+        {
+          "before": [
+            "totals = list(map(operator.add, revenues, costs))",
+            "# a longer revenues list is silently truncated"
+          ],
+          "after": [
+            "totals = list(map(operator.add, revenues, costs, strict=True))",
+            "# raises ValueError on length mismatch"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pathlib_copy_move",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Files",
+      "impact": "Medium",
+      "guideline": "Copy and move files or directory trees with `Path.copy()`, `Path.copy_into()`, `Path.move()`, and `Path.move_into()` instead of mixing `shutil` calls into `pathlib` code.",
+      "details": "3.14 adds tree-aware copy/move methods to `Path` (3.13 has none of them); each returns the destination `Path`. `copy(target, *, follow_symlinks=True, preserve_metadata=False)` replaces an existing target file and skips metadata by default; `move(target)` overwrites a file target but raises `OSError` for a non-empty directory target and falls back to copy-plus-delete across filesystems. These methods do not exist before 3.14.",
+      "references": ["whatsnew/3.14 (pathlib)"],
+      "examples": [
+        {
+          "before": [
+            "import shutil",
+            "",
+            "shutil.copytree(\"dist/site\", \"/srv/www/site\")",
+            "shutil.move(\"dist/site.html\", \"/srv/www/site.html\")"
+          ],
+          "after": [
+            "Path(\"dist/site\").copy(\"/srv/www/site\")",
+            "Path(\"dist/site.html\").move(\"/srv/www/site.html\")"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t_string_templates",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Strings",
+      "impact": "Medium",
+      "guideline": "Build structured, injection-safe interpolations with `t\"...\"` template strings instead of f-string concatenation for SQL, HTML, or shell fragments.",
+      "details": "PEP 750 t-strings evaluate to `string.templatelib.Template` — an object holding static text plus `Interpolation` parts, not a `str`. A renderer supplied by the database driver, HTML library, or shell builder decides how each interpolation is quoted, moving safety from discipline into the library. F-strings remain correct when the finished string is wanted immediately; passing a Template where a str is expected fails loudly, which is the point.",
+      "references": ["PEP 750", "whatsnew/3.14#pep-750-template-string-literals"],
+      "examples": [
+        {
+          "before": [
+            "query = f\"SELECT * FROM users WHERE name = '{name}'\"",
+            "rows = db.execute(query)  # quoting is manual and fragile"
+          ],
+          "after": [
+            "query = t\"SELECT * FROM users WHERE name = {name}\"",
+            "rows = db.execute(query)  # the driver renders interpolations safely"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forkserver_start_method",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Concurrency",
+      "impact": "Medium",
+      "guideline": "Expect `forkserver` as the Unix default start method in 3.14, and request `fork` explicitly — only — where its semantics are required.",
+      "details": "On Unix platforms other than macOS, 3.14 replaces the `fork` default with `forkserver` in both multiprocessing and concurrent.futures, closing the fork-with-threads hazard: workers are forked from a clean server process. Costs: no copy-on-write sharing of parent memory, arguments must pickle, and startup is slower. Code relying on fork's memory sharing or unpicklable globals must opt back in via `get_context(\"fork\")` or `ProcessPoolExecutor(mp_context=...)`.",
+      "references": ["whatsnew/3.14"],
+      "examples": [
+        {
+          "before": [
+            "# 3.13 and earlier on Unix: default start method \"fork\"",
+            "with multiprocessing.Pool(4) as pool:  # children share memory CoW",
+            "    results = pool.map(heavy, chunks)"
+          ],
+          "after": [
+            "# 3.14: Unix default is \"forkserver\". Keep fork only if required:",
+            "ctx = multiprocessing.get_context(\"fork\")",
+            "with ctx.Pool(4) as pool:",
+            "    results = pool.map(heavy, chunks)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_union_repr_unified",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Do not depend on `repr()` or caching differences between `typing.Union` and `|` unions — 3.14 unifies them.",
+      "details": "3.14 completes PEP 604 convergence: `repr(typing.Union[int, str])` now renders exactly `int | str`, and the runtime no longer caches legacy `Union` instances. This is an observable behavior change — snapshot tests or code that serializes type reprs will see different output, per the official porting notes.",
+      "references": ["whatsnew/3.14"],
+      "examples": [
+        {
+          "before": [
+            "assert repr(Union[int, str]) == \"typing.Union[int, str]\"  # breaks on 3.14"
+          ],
+          "after": ["assert repr(Union[int, str]) == \"int | str\"  # unified spelling"]
+        }
+      ]
+    },
+    {
+      "id": "except_multiple_no_brackets",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Errors",
+      "impact": "Low",
+      "guideline": "List multiple exception types in `except A, B:` without parentheses when the clause binds no name.",
+      "details": "PEP 758 drops the mandatory tuple for both `except` and `except*` in 3.14; `except* A, B:` was likewise a SyntaxError before. Parentheses remain required whenever an `as` clause follows, so the grammar cannot misread the bound name as an exception type. The bracketed tuple form stays fully valid; treat the short form as style, not a forced migration.",
+      "references": [
+        "PEP 758",
+        "whatsnew/3.14#pep-758-allow-except-and-except-expressions-without-brackets"
+      ],
+      "examples": [
+        {
+          "before": [
+            "try:",
+            "    process(row)",
+            "except (ValueError, KeyError):",
+            "    log.warning(\"skipped malformed row\")"
+          ],
+          "after": [
+            "try:",
+            "    process(row)",
+            "except ValueError, KeyError:  # no `as` clause: brackets optional",
+            "    log.warning(\"skipped malformed row\")"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "subinterpreters_stdlib",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Concurrency",
+      "impact": "Low",
+      "guideline": "Fan out isolated Python work with `InterpreterPoolExecutor` / `concurrent.interpreters` instead of multiprocessing when startup and IPC dominate (PEP 734).",
+      "details": "PEP 734 ships per-interpreter GILs: `concurrent.futures.InterpreterPoolExecutor` runs calls on a pool of subinterpreters inside one process, so there is no process-spawn cost per worker and each worker holds its own GIL. Interpreters share nothing — arguments and results still cross by pickling or shared buffers — and C extensions must be per-interpreter compatible before you switch.",
+      "references": [
+        "PEP 734",
+        "whatsnew/3.14#pep-734-multiple-interpreters-in-the-standard-library"
+      ],
+      "examples": [
+        {
+          "before": [
+            "from multiprocessing import Pool",
+            "",
+            "with Pool(4) as pool:  # process spawn + pickle per task",
+            "    results = pool.map(heavy, chunks)"
+          ],
+          "after": [
+            "from concurrent.futures import InterpreterPoolExecutor",
+            "",
+            "with InterpreterPoolExecutor() as pool:  # one GIL per worker",
+            "    results = list(pool.map(heavy, chunks))"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pickle_protocol5_default",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Data",
+      "impact": "Low",
+      "guideline": "Drop the explicit `protocol=5` from `pickle.dump`/`dumps` on 3.14, where protocol 5 became the default.",
+      "details": "3.14 raises the default pickle protocol from 4 to 5, so the explicit argument is redundant and out-of-band buffers (PEP 574) no longer need a protocol opt-in. Only the default moved: data written with protocol 5 still cannot be read by interpreters older than 3.8, so payloads consumed by 3.7-era runtimes must pin `protocol=4` explicitly rather than trust the writer's default.",
+      "references": ["whatsnew/3.14"],
+      "examples": [
+        {
+          "before": ["blob = pickle.dumps(obj, protocol=5)  # pinned since 3.8 days"],
+          "after": [
+            "blob = pickle.dumps(obj)  # default protocol is 5 since 3.14",
+            "# pin protocol=4 explicitly if 3.7 runtimes must read it"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zstandard_stdlib",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Files",
+      "impact": "Low",
+      "guideline": "Compress with the `compression.zstd` module (PEP 784) instead of the third-party `zstandard` package; `tarfile`, `zipfile`, and `shutil` accept zstd too.",
+      "details": "PEP 784 adds `compression.zstd` with a `zlib`-like surface — `zstd.compress(data)` and `zstd.decompress(blob)` — and threads the codec through `tarfile`, `zipfile`, and `shutil`, letting archive code drop a dependency. It is not a drop-in for the `zstandard` package: names and streaming idioms differ, so port call sites deliberately, and floors below 3.14 still need the third-party package as a conditional dependency.",
+      "references": ["PEP 784", "whatsnew/3.14#pep-784-zstandard-support-in-the-standard-library"],
+      "examples": [
+        {
+          "before": ["import zstandard", "", "blob = zstandard.ZstdCompressor().compress(data)"],
+          "after": ["from compression import zstd", "", "blob = zstd.compress(data)"]
+        }
+      ]
+    },
+    {
+      "id": "free_threaded_supported",
+      "since_version": "3.14",
+      "autofix": null,
+      "category": "Runtime",
+      "impact": "Low",
+      "guideline": "Treat the free-threaded build (`python3.14t`) as a supported deployment target since 3.14 (PEP 779), after auditing extensions and shared state.",
+      "details": "PEP 779 moves free-threaded CPython from experimental to officially supported: the `t` build ships alongside the GIL build and is a legitimate production target. The official whatsnew puts single-threaded overhead at roughly five to ten percent. The audit is the real work — C extensions need free-threaded builds, and code that leaned on the GIL for atomicity needs explicit locking before switching.",
+      "references": ["PEP 779", "whatsnew/3.14"],
+      "examples": [
+        {
+          "before": [
+            "# CI matrix",
+            "python-version: [\"3.12\", \"3.13\", \"3.14\"]  # GIL builds only"
+          ],
+          "after": [
+            "# CI matrix",
+            "python-version: [\"3.14\", \"3.14t\"]  # 3.14t: free-threaded (PEP 779)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_type_is",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Return `TypeIs[T]` from narrowing predicates instead of `TypeGuard[T]`.",
+      "details": "`TypeIs` narrows like `isinstance`: a True result narrows to the checked type and the else branch narrows to the complement, fixing `TypeGuard`'s one-directional narrowing. It is a static-checking contract only — nothing is validated at runtime, so predicates must still be implemented correctly.",
+      "references": ["PEP 742", "whatsnew/3.13"],
+      "examples": [
+        {
+          "before": ["def is_str_list(values: list[object]) -> TypeGuard[list[str]]: ..."],
+          "after": ["def is_str_list(values: list[object]) -> TypeIs[list[str]]: ..."]
+        }
+      ]
+    },
+    {
+      "id": "typeddict_readonly",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Mark write-once TypedDict keys with `ReadOnly[...]` instead of naming conventions or docstrings.",
+      "details": "PEP 705 adds `typing.ReadOnly` so individual TypedDict keys are checked as settable only at construction; checkers then reject later assignment. Purely a static contract — no runtime immutability is enforced; covariance support is the PEP's main motivation.",
+      "references": ["PEP 705", "whatsnew/3.13"],
+      "examples": [
+        {
+          "before": [
+            "class Config(TypedDict):",
+            "    # \"id must not be overwritten\" — convention only",
+            "    id: str",
+            "    retries: int"
+          ],
+          "after": ["class Config(TypedDict):", "    id: ReadOnly[str]", "    retries: int"]
+        }
+      ]
+    },
+    {
+      "id": "typevar_defaults",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Give TypeVars defaults (`TypeVar(\"T\", default=...)`) instead of hand-written placeholder aliases.",
+      "details": "PEP 696 lets a TypeVar fall back to a default type, removing placeholder TypeVar aliases and the unions they force onto every signature. `ParamSpec` and `TypeVarTuple` also accept defaults, but support is checker-dependent — verify your toolchain resolves the fallback before relying on it.",
+      "references": ["PEP 696", "whatsnew/3.13"],
+      "examples": [
+        {
+          "before": [
+            "T = TypeVar(\"T\")",
+            "DefaultT = TypeVar(\"DefaultT\")",
+            "",
+            "def first(items: list[T], fallback: DefaultT) -> T | DefaultT: ..."
+          ],
+          "after": [
+            "T = TypeVar(\"T\", default=None)",
+            "",
+            "def first(items: list[T]) -> T | None: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "generator_default_params",
+      "since_version": "3.13",
+      "autofix": "ruff:UP043",
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Write `Generator[int]` instead of `Generator[int, None, None]` when the extra types are `None`.",
+      "details": "Since 3.13 the send and return type parameters of `Generator` and `AsyncGenerator` default to `None`, so trailing `None` arguments are redundant noise; ruff UP043 removes them and the fix is safe. Keep the explicit arguments when those types genuinely differ from `None`.",
+      "references": ["PEP 696", "whatsnew/3.13"],
+      "examples": [
+        {
+          "before": ["def poll() -> Generator[int, None, None]: ..."],
+          "after": ["def poll() -> Generator[int]: ..."]
+        },
+        {
+          "before": ["async def watch() -> AsyncGenerator[Event, None]: ..."],
+          "after": ["async def watch() -> AsyncGenerator[Event]: ..."]
+        }
+      ]
+    },
+    {
+      "id": "copy_replace",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Data",
+      "impact": "Medium",
+      "guideline": "Use `copy.replace(obj, **changes)` for immutable updates instead of per-type `_replace` helpers and hand-written `replace()` methods.",
+      "details": "3.13 introduces a `__replace__` protocol and `copy.replace()` as one uniform update operation; namedtuple, dataclass, datetime, ZoneInfo and other stdlib types already implement it. The target type must implement `__replace__` — custom immutable classes need to add it themselves before call sites can switch.",
+      "references": ["whatsnew/3.13"],
+      "examples": [
+        {
+          "before": [
+            "new_dt = dt.replace(year=2031)   # datetime-specific method",
+            "new_rec = record._replace(x=1)   # namedtuple private API"
+          ],
+          "after": [
+            "import copy",
+            "",
+            "new_dt = copy.replace(dt, year=2031)",
+            "new_rec = copy.replace(record, x=1)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "warnings_deprecated_decorator",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Deprecation",
+      "impact": "Medium",
+      "guideline": "Mark deprecated APIs with `@warnings.deprecated(\"...\")` instead of hand-rolled DeprecationWarning decorators.",
+      "details": "PEP 702 makes the signal uniform: one decorator on a function, class, method, or property emits `DeprecationWarning` at runtime on use and lets type checkers flag call sites statically, replacing bespoke decorator stacks that only covered functions. Runtime warnings fire on call for functions and on attribute access for classes; the static half needs checker support, so keep the changelog entry too.",
+      "references": ["PEP 702", "whatsnew/3.13"],
+      "examples": [
+        {
+          "before": [
+            "import warnings",
+            "",
+            "def deprecated(msg):",
+            "    def wrap(fn):",
+            "        def inner(*a, **kw):",
+            "            warnings.warn(msg, DeprecationWarning, stacklevel=2)",
+            "            return fn(*a, **kw)",
+            "        return inner",
+            "    return wrap",
+            "",
+            "@deprecated(\"use fetch_v2\")",
+            "def fetch(url): ..."
+          ],
+          "after": [
+            "import warnings",
+            "",
+            "@warnings.deprecated(\"use fetch_v2\")",
+            "def fetch(url): ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dead_batteries_replacement",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Deprecation",
+      "impact": "Medium",
+      "guideline": "Replace the 19 modules removed by PEP 594 (`cgi`, `crypt`, `telnetlib`, `pipes`, `imghdr`, ...) with their documented successors before moving to 3.13.",
+      "details": "3.13 deletes the PEP 594 dead batteries, and `import cgi` now raises `ModuleNotFoundError`. Each module has a mapped successor: password hashing moves from `crypt` to `hashlib` or passlib, `telnetlib` to asyncio streams or telnetlib3, `pipes` to `subprocess`, `imghdr` to filetype or puremagic. Several successors are third-party, so budget the new dependencies instead of assuming stdlib-for-stdlib swaps.",
+      "references": [
+        "PEP 594",
+        "whatsnew/3.13#pep-594-remove-dead-batteries-from-the-standard-library"
+      ],
+      "examples": [
+        {
+          "before": [
+            "import cgi",
+            "import crypt",
+            "import telnetlib  # all removed in 3.13 (PEP 594)"
+          ],
+          "after": [
+            "from hashlib import pbkdf2_hmac  # replaces crypt password hashing",
+            "from urllib.parse import parse_qs  # replaces cgi form helpers",
+            "# telnetlib -> asyncio streams; PEP 594 maps all 19 modules"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "anystr_type_params",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Replace `typing.AnyStr` with explicit type parameters bound to `str` or `bytes`.",
+      "details": "`typing.AnyStr` is deprecated since 3.13 and will be removed in 3.18, joining `typing.ByteString` (removal 3.17) among top-level typing aliases with announced removal versions. Declare the constraint explicitly instead. The PEP 695 constraint syntax shown needs 3.12+; on older interpreter floors use a TypeVar constrained to `(str, bytes)`.",
+      "references": ["library/typing#deprecated-aliases"],
+      "examples": [
+        {
+          "before": ["def concat(a: AnyStr, b: AnyStr) -> AnyStr: ..."],
+          "after": ["def concat[S: (str, bytes)](a: S, b: S) -> S: ..."]
+        }
+      ]
+    },
+    {
+      "id": "batched_strict",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Collections",
+      "impact": "Low",
+      "guideline": "Pass `strict=True` to `itertools.batched()` when the input length must divide evenly by the batch size.",
+      "details": "From 3.13, `batched(iterable, n, strict=True)` raises `ValueError` if the final batch would be shorter than `n`, extending the 3.10 `zip(strict=True)` guarantee to chunking loops. Use it only where uneven division is genuinely an error — streams of unknown length (sockets, generators) legitimately end mid-batch, and strict mode would turn a normal end-of-stream into a crash.",
+      "references": ["whatsnew/3.13 (itertools)"],
+      "examples": [
+        {
+          "before": [
+            "for page in batched(rows, page_size):",
+            "    # a short final page is passed through silently",
+            "    render(page)"
+          ],
+          "after": ["for page in batched(rows, page_size, strict=True):", "    render(page)"]
+        }
+      ]
+    },
+    {
+      "id": "process_cpu_count",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Runtime",
+      "impact": "Low",
+      "guideline": "Size parallelism with `os.process_cpu_count()` instead of `os.cpu_count()` when affinity or container limits matter.",
+      "details": "`os.process_cpu_count` returns the CPUs actually usable by this process — after `sched_setaffinity`, and it is the value `PYTHON_CPU_COUNT` overrides — while `os.cpu_count` reports the machine total and can massively overstate a cgroup-limited container. Concurrency primitives account for it from 3.13, so explicit worker sizing should read the same number.",
+      "references": ["whatsnew/3.13"],
+      "examples": [
+        {
+          "before": [
+            "workers = min(8, os.cpu_count() or 1)",
+            "# a 128-core host limited to 2 CPUs yields 8 workers"
+          ],
+          "after": [
+            "workers = min(8, os.process_cpu_count() or 1)",
+            "# respects affinity and container CPU limits"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "locals_snapshot_semantics",
+      "since_version": "3.13",
+      "autofix": null,
+      "category": "Runtime",
+      "impact": "Low",
+      "guideline": "Assign variables directly instead of writing through `locals()`; PEP 667 made the snapshot semantics explicit in 3.13.",
+      "details": "PEP 667 replaces old undefined behavior: `locals()` now formally returns a snapshot, while `frame.f_locals` is a write-through proxy shared across accesses. Debuggers, tracers, and REPLs gain introspection that actually sticks, but code doing `locals()[\"x\"] = value` must switch to direct assignment — the write-through path belongs to tooling, and optimized module and class scopes never propagated writes anyway.",
+      "references": ["PEP 667", "whatsnew/3.13#defined-mutation-semantics-for-locals"],
+      "examples": [
+        {
+          "before": [
+            "def run():",
+            "    locals()[\"mode\"] = \"fast\"  # undefined write-back",
+            "    dispatch()"
+          ],
+          "after": [
+            "def run():",
+            "    mode = \"fast\"",
+            "    dispatch()",
+            "# tooling that must mutate: use frame.f_locals (PEP 667 proxy)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "type_alias_statement",
+      "since_version": "3.12",
+      "autofix": "ruff:UP040",
+      "category": "Typing",
+      "impact": "High",
+      "guideline": "Declare type aliases with the `type` statement instead of `TypeAlias` assignments.",
+      "details": "The `type X = ...` statement creates a `TypeAliasType` with lazy evaluation and unambiguous alias semantics. Plain assignments like `X = int` can be used with `isinstance`, while the `type` statement product raises `TypeError` there; variance and bound information may be lost, and the fix is marked unsafe.",
+      "references": ["PEP 695", "whatsnew/3.12#pep-695-type-parameter-syntax"],
+      "examples": [
+        {
+          "before": ["UserId: TypeAlias = int", "Vector: TypeAlias = list[float]"],
+          "after": ["type UserId = int", "type Vector = list[float]"]
+        }
+      ]
+    },
+    {
+      "id": "generic_class_params",
+      "since_version": "3.12",
+      "autofix": "ruff:UP046",
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Declare generic classes inline (`class Box[T]:`) instead of module-level TypeVars plus `Generic[T]`.",
+      "details": "PEP 695 binds type parameters to the class declaration, dropping module-level TypeVars and the `Generic` base class. Variance is inferred and is not guaranteed to match an explicit `covariant`/`contravariant` declaration, and ruff's fix is unsafe because the old TypeVar assignment is not removed automatically.",
+      "references": ["PEP 695", "whatsnew/3.12#pep-695-type-parameter-syntax"],
+      "examples": [
+        {
+          "before": [
+            "T = TypeVar(\"T\")",
+            "",
+            "class Box(Generic[T]):",
+            "    def __init__(self, item: T) -> None: ...",
+            "    def get(self) -> T: ..."
+          ],
+          "after": [
+            "class Box[T]:",
+            "    def __init__(self, item: T) -> None: ...",
+            "    def get(self) -> T: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "generic_function_params",
+      "since_version": "3.12",
+      "autofix": "ruff:UP047",
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Declare generic functions inline (`def first[T](...)`) instead of module-level TypeVars.",
+      "details": "The same PEP 695 mechanism binds type parameters to the function: `def first[T](items: list[T]) -> T`. Inferred variance may differ from the old explicit TypeVar declaration, and ruff notes some type checkers' PEP 695 support is still maturing — confirm your checker handles it before bulk rewrites.",
+      "references": ["PEP 695", "whatsnew/3.12#pep-695-type-parameter-syntax"],
+      "examples": [
+        {
+          "before": ["T = TypeVar(\"T\")", "", "def first(items: list[T]) -> T: ..."],
+          "after": ["def first[T](items: list[T]) -> T: ..."]
+        }
+      ]
+    },
+    {
+      "id": "typeddict_kwargs_unpack",
+      "since_version": "3.12",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Type `**kwargs` with `**kwargs: Unpack[SomeTypedDict]` instead of `Any` or a plain dict.",
+      "details": "PEP 692 types each keyword argument through a TypedDict, so `**kwargs: Unpack[ConnOpts]` gives callers per-key checking with `Required`/`NotRequired` control over optionality. Purely a type-checker contract — no runtime validation of kwargs happens; keep validating values as before.",
+      "references": [
+        "PEP 692",
+        "whatsnew/3.12#pep-692-using-typeddict-for-more-precise-kwargs-typing"
+      ],
+      "examples": [
+        {
+          "before": ["def connect(**kwargs: Any) -> Connection: ..."],
+          "after": [
+            "class ConnOpts(TypedDict):",
+            "    host: str",
+            "    timeout: NotRequired[float]",
+            "",
+            "def connect(**kwargs: Unpack[ConnOpts]) -> Connection: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "override_decorator",
+      "since_version": "3.12",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Mark overriding methods with `@typing.override` so misspellings fail static checks.",
+      "details": "`@typing.override` asserts the decorated method exists on a base class, so a misspelled override like `get_colour` fails static analysis instead of silently becoming a new method. Enforced by type checkers only — the decorator does nothing at runtime.",
+      "references": ["PEP 698", "whatsnew/3.12#pep-698-override-decorator-for-static-typing"],
+      "examples": [
+        {
+          "before": [
+            "class TruncatingFilter(Filter):",
+            "    def aply(self, text: str) -> str: ...  # typo: never called"
+          ],
+          "after": [
+            "class TruncatingFilter(Filter):",
+            "    @override",
+            "    def apply(self, text: str) -> str: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "itertools_batched",
+      "since_version": "3.12",
+      "autofix": null,
+      "category": "Collections",
+      "impact": "Medium",
+      "guideline": "Chunk iterables with `itertools.batched(it, n)` instead of hand-written `range(0, len(xs), n)` slicing loops.",
+      "details": "`batched()` yields tuples of up to `n` items from any iterable — generators included — with no sequence requirement, no index arithmetic, and no intermediate list slices. The final batch may be shorter than `n`; if uneven division is an error, 3.13 adds `strict=True` to raise `ValueError` instead (the ruff check is B911, not a UP autofix).",
+      "references": ["whatsnew/3.12 (itertools)"],
+      "examples": [
+        {
+          "before": ["for i in range(0, len(records), 100):", "    flush(records[i : i + 100])"],
+          "after": [
+            "from itertools import batched",
+            "",
+            "for group in batched(records, 100):",
+            "    flush(group)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pathlib_walk",
+      "since_version": "3.12",
+      "autofix": null,
+      "category": "Files",
+      "impact": "Medium",
+      "guideline": "Traverse directory trees with `Path.walk()` instead of re-joining `os.walk()` strings into `Path` objects.",
+      "details": "`Path.walk(top_down=True, on_error=None, follow_symlinks=False)` yields `(dirpath, dirnames, filenames)` where `dirpath` is a `Path` and the name lists are strings — join with `dirpath / name`. It is not a rename of `os.walk()`: with `follow_symlinks=False` (the default), symlinks to directories land in `filenames`, whereas `os.walk()` categorizes them as directories; pruning mutates `dirnames` in place and only works when `top_down` is true.",
+      "references": ["whatsnew/3.12 (pathlib)"],
+      "examples": [
+        {
+          "before": [
+            "import os",
+            "",
+            "for root, dirs, files in os.walk(\"src\"):",
+            "    for name in files:",
+            "        path = Path(root) / name",
+            "        if path.suffix == \".py\":",
+            "            yield path"
+          ],
+          "after": [
+            "for root, dirs, files in Path(\"src\").walk():",
+            "    for name in files:",
+            "        path = root / name",
+            "        if path.suffix == \".py\":",
+            "            yield path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "distutils_removed",
+      "since_version": "3.12",
+      "autofix": null,
+      "category": "Deprecation",
+      "impact": "Medium",
+      "guideline": "Migrate off `distutils` before 3.12, where it was removed (PEP 632); build metadata belongs in pyproject.toml.",
+      "details": "PEP 632 removed distutils in 3.12, so `import distutils` fails unless setuptools happens to be installed — and venvs created by 3.12+ no longer preinstall setuptools, so even the compatibility shim is not guaranteed. Move build configuration to `[build-system]` and `[project]`, file operations to `shutil`, and packaging helpers to dedicated libraries; the PEP maps every removed API to a replacement.",
+      "references": ["PEP 632", "whatsnew/3.12"],
+      "examples": [
+        {
+          "before": [
+            "from distutils.core import setup",
+            "",
+            "setup(name=\"mypkg\", version=\"1.0\")"
+          ],
+          "after": [
+            "# pyproject.toml",
+            "[build-system]",
+            "requires = [\"setuptools>=77\"]",
+            "build-backend = \"setuptools.build_meta\"",
+            "",
+            "[project]",
+            "name = \"mypkg\"",
+            "version = \"1.0\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_abc_direct_import",
+      "since_version": "3.12",
+      "autofix": "ruff:UP035",
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Import ABCs like `Hashable` and `Sized` from `collections.abc`, not `typing`.",
+      "details": "The `typing.Hashable`, `typing.Sized` and sibling re-exports are deprecated since 3.12; import the ABCs from `collections.abc` (ruff UP035 rewrites the imports). `typing.ByteString` is stricter — deprecated since 3.9 and removed in 3.17 — and should migrate to `collections.abc.Buffer` (PEP 688), not merely be re-imported.",
+      "references": ["PEP 585", "library/typing#deprecated-aliases"],
+      "examples": [
+        {
+          "before": ["from typing import Hashable, Iterable, Sized"],
+          "after": ["from collections.abc import Hashable, Iterable, Sized"]
+        }
+      ]
+    },
+    {
+      "id": "fstring_quote_reuse",
+      "since_version": "3.12",
+      "autofix": null,
+      "category": "Strings",
+      "impact": "Low",
+      "guideline": "Reuse the same quote character and nest expressions freely inside f-strings (PEP 701).",
+      "details": "PEP 701 formalized f-string parsing: expressions may contain strings with the enclosing quote, arbitrary nesting, multi-line spans, comments, backslashes, and `\\N{...}` escapes — the old quote-alternation and temp-variable workarounds are obsolete. These are a `SyntaxError` before 3.12, and the new token stream confused tools built on the old tokenizer, so keep formatters and coverage tools 3.12-aware.",
+      "references": ["PEP 701", "whatsnew/3.12#pep-701-syntactic-formalization-of-f-strings"],
+      "examples": [
+        {
+          "before": ["playlist = \"This is the playlist: {}\".format(\", \".join(songs))"],
+          "after": ["playlist = f\"This is the playlist: {\", \".join(songs)}\""]
+        }
+      ]
+    },
+    {
+      "id": "tomllib_stdlib",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Files",
+      "impact": "High",
+      "guideline": "Read TOML with the standard library `tomllib` instead of the third-party `tomli`.",
+      "details": "PEP 680 adds a TOML 1.0 reader: `tomllib.load(fh)` expects a file opened in binary mode, `tomllib.loads(text)` takes a `str`; both return plain dicts and raise `TOMLDecodeError` on malformed input. The module is read-only — writing stays with `tomli-w`. Passing a text-mode file raises `TypeError`, and on floors below 3.11 keep the `try: import tomllib / except ModuleNotFoundError: import tomli as tomllib` shim.",
+      "references": ["PEP 680", "whatsnew/3.11 (new modules)"],
+      "examples": [
+        {
+          "before": [
+            "import tomli",
+            "",
+            "with open(\"pyproject.toml\", \"rb\") as fh:",
+            "    config = tomli.load(fh)"
+          ],
+          "after": [
+            "import tomllib",
+            "",
+            "with open(\"pyproject.toml\", \"rb\") as fh:",
+            "    config = tomllib.load(fh)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asyncio_task_group",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Async",
+      "impact": "High",
+      "guideline": "Run concurrent coroutines under `async with asyncio.TaskGroup()` instead of `create_task` plus `gather`.",
+      "details": "The group awaits every child on exit and, as soon as one fails, cancels the siblings and re-raises all failures as an `ExceptionGroup` (a `BaseExceptionGroup` when a leaf derives only from BaseException); handle it with `except*` per `exception_group_except_star`. Tasks can no longer be forgotten the way bare `create_task` allowed. Fetch results from the task objects you keep; there is no `gather`-style combined return.",
+      "references": ["whatsnew/3.11 (asyncio)"],
+      "examples": [
+        {
+          "before": [
+            "tasks = [asyncio.create_task(fetch(url)) for url in urls]",
+            "results = await asyncio.gather(*tasks)",
+            "# one crash leaves siblings running or errors unobserved"
+          ],
+          "after": [
+            "async with asyncio.TaskGroup() as tg:",
+            "    tasks = [tg.create_task(fetch(url)) for url in urls]",
+            "results = [t.result() for t in tasks]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_self",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Annotate instance-returning methods with `typing.Self` instead of class-name strings or custom TypeVars.",
+      "details": "`typing.Self` refers to the enclosing class, replacing quoted class-name forward references and self-referential TypeVars in `__enter__`, `classmethod` constructors, and fluent builders; subclasses keep precise return types. It is mainly a static construct, though pydantic v2 does support `Self` at runtime.",
+      "references": ["PEP 673", "whatsnew/3.11#pep-673-self-type"],
+      "examples": [
+        {
+          "before": ["class Builder:", "    def reset(self) -> \"Builder\": ..."],
+          "after": ["class Builder:", "    def reset(self) -> Self: ..."]
+        }
+      ]
+    },
+    {
+      "id": "typeddict_required_not_required",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Control TypedDict key optionality per key with `Required[...]`/`NotRequired[...]` instead of class-level `total=`.",
+      "details": "`total=` makes every key required or every key optional in one shot; PEP 655 items override it per key, so mixed required/optional shapes need no artificial subclass split. A static-checker contract only — keys are never validated at runtime.",
+      "references": [
+        "PEP 655",
+        "whatsnew/3.11#pep-655-marking-individual-typeddict-items-as-required-or-not-required"
+      ],
+      "examples": [
+        {
+          "before": [
+            "class Job(TypedDict, total=False):",
+            "    name: str  # actually required, but unchecked",
+            "    retries: int"
+          ],
+          "after": [
+            "class Job(TypedDict):",
+            "    name: Required[str]",
+            "    retries: NotRequired[int]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_assert_never",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Close exhaustive `match`/`if` chains with `typing.assert_never(value)` instead of ad-hoc raises.",
+      "details": "Passing the exhaustively narrowed value to `typing.assert_never` makes checkers prove every enum member or Literal case is handled; adding a new member becomes a visible error. At runtime it raises `AssertionError` — a developer tripwire, not a user-facing error type.",
+      "references": ["whatsnew/3.11"],
+      "examples": [
+        {
+          "before": [
+            "def render(mode: Literal[\"dark\", \"light\"]) -> str:",
+            "    if mode == \"dark\":",
+            "        return \"#000\"",
+            "    elif mode == \"light\":",
+            "        return \"#fff\"",
+            "    raise AssertionError(\"unreachable\")"
+          ],
+          "after": [
+            "def render(mode: Literal[\"dark\", \"light\"]) -> str:",
+            "    if mode == \"dark\":",
+            "        return \"#000\"",
+            "    elif mode == \"light\":",
+            "        return \"#fff\"",
+            "    assert_never(mode)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "exception_group_except_star",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Errors",
+      "impact": "Medium",
+      "guideline": "Propagate multiple failures as an `ExceptionGroup` and split them by type with `except*` instead of collapsing them into one error or swallowing them via `gather(return_exceptions=True)`.",
+      "details": "`except*` runs once per matching subgroup and re-raises the non-matching remainder as a new group; the handler binds that subgroup, not the original leaves. It cannot share a `try` with plain `except` (a SyntaxError). Hierarchy matters: `ExceptionGroup` subclasses `Exception`, but `BaseExceptionGroup` does not, so `except Exception` misses base-only groups. This is the handler half of `asyncio_task_group`.",
+      "references": ["PEP 654", "whatsnew/3.11#pep-654-exception-groups-and-except"],
+      "examples": [
+        {
+          "before": [
+            "results = await asyncio.gather(fetch(a), fetch(b), return_exceptions=True)",
+            "failed = [r for r in results if isinstance(r, Exception)]",
+            "if failed:",
+            "    raise RuntimeError(f\"{len(failed)} requests failed\")  # types lost"
+          ],
+          "after": [
+            "try:",
+            "    async with asyncio.TaskGroup() as tg:",
+            "        tg.create_task(fetch(a))",
+            "        tg.create_task(fetch(b))",
+            "except* TimeoutError as group:",
+            "    retry([exc for exc in group.exceptions])"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "exception_add_note",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Errors",
+      "impact": "Medium",
+      "guideline": "Attach operational context to a propagating exception with `exc.add_note(...)` instead of re-raising a wrapped replacement.",
+      "details": "PEP 678 appends notes to the live exception object; each note renders in the default traceback, and repeated calls accumulate rather than overwrite. The original type and traceback stay intact, unlike `raise AppError(...) from exc`, which forces every caller to unwrap a new type; keep explicit `raise ... from` chaining for the cases where a genuinely different exception must be raised.",
+      "references": ["PEP 678", "whatsnew/3.11#pep-678-exceptions-can-be-enriched-with-notes"],
+      "examples": [
+        {
+          "before": [
+            "try:",
+            "    body = json.loads(raw)",
+            "except json.JSONDecodeError as exc:",
+            "    raise ValueError(f\"bad payload from {source}\") from exc",
+            "    # callers now catch ValueError and lose the decode detail"
+          ],
+          "after": [
+            "try:",
+            "    body = json.loads(raw)",
+            "except json.JSONDecodeError as exc:",
+            "    exc.add_note(f\"payload source: {source}\")",
+            "    raise  # same type, same traceback, richer report"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asyncio_timeout_cm",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Async",
+      "impact": "Medium",
+      "guideline": "Bound a whole block of awaits with `async with asyncio.timeout(...)` instead of wrapping single calls in `asyncio.wait_for`.",
+      "details": "The context manager guards every await inside the block, loops, retries, and helper calls alike, and raises the built-in `TimeoutError` on expiry (the same class as `asyncio.TimeoutError` since 3.11; see `timeout_error_alias`). `wait_for` is not deprecated and still fits one-shot wrapping. On expiry the current await is cancelled first, so cleanup code runs before the error surfaces.",
+      "references": ["whatsnew/3.11 (asyncio)"],
+      "examples": [
+        {
+          "before": [
+            "async def sync_document(doc):",
+            "    remote = await asyncio.wait_for(download(doc), timeout=5)",
+            "    for part in remote.parts:",
+            "        await asyncio.wait_for(merge(doc, part), timeout=5)"
+          ],
+          "after": [
+            "async def sync_document(doc):",
+            "    async with asyncio.timeout(5):",
+            "        remote = await download(doc)",
+            "        for part in remote.parts:",
+            "            await merge(doc, part)  # every await is covered"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "timeout_error_alias",
+      "since_version": "3.11",
+      "autofix": "ruff:UP041",
+      "category": "Errors",
+      "impact": "Medium",
+      "guideline": "Catch and raise the built-in `TimeoutError` instead of the `asyncio.TimeoutError` and `socket.timeout` aliases.",
+      "details": "`socket.timeout` (since 3.10) and `asyncio.TimeoutError` (since 3.11) are aliases of the built-in `TimeoutError`, so the built-in is the only name worth writing; ruff:UP041 rewrites both. Unifying shrinks `except` tuples and removes imports that existed only for the alias. `ssl.SSLError` is not in this family: it is an OSError subclass but not an alias, so UP024 (which covers OSError aliases) does not flag it.",
+      "references": ["whatsnew/3.11"],
+      "examples": [
+        {
+          "before": [
+            "import asyncio",
+            "",
+            "try:",
+            "    data = await fetch(url)",
+            "except asyncio.TimeoutError:",
+            "    data = b\"\""
+          ],
+          "after": [
+            "try:",
+            "    data = await fetch(url)",
+            "except TimeoutError:  # same class as socket.timeout and asyncio.TimeoutError",
+            "    data = b\"\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "enum_strenum",
+      "since_version": "3.11",
+      "autofix": "ruff:UP042",
+      "category": "Enums",
+      "impact": "Medium",
+      "guideline": "Declare string enums with `enum.StrEnum` instead of `class X(str, enum.Enum)`.",
+      "details": "StrEnum is the purpose-built str-enum base: members are genuine `str` values and `str(member)` / f-strings render the value (`\"red\"`), while since 3.11 the str-mixin form renders `Color.RED` instead. Display, logging, and serialization that depend on either rendering must be re-tested; ruff:UP042 rewrites the base class but cannot fix downstream output changes.",
+      "references": ["whatsnew/3.11 (enum)"],
+      "examples": [
+        {
+          "before": [
+            "class Color(str, Enum):",
+            "    RED = \"red\"",
+            "",
+            "f\"{Color.RED}\"  # 3.11: 'Color.RED'"
+          ],
+          "after": [
+            "class Color(StrEnum):",
+            "    RED = \"red\"",
+            "",
+            "f\"{Color.RED}\"  # 'red'"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "datetime_fromisoformat_iso8601",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Datetime",
+      "impact": "Medium",
+      "guideline": "Parse ISO 8601 timestamps with `datetime.fromisoformat()` instead of `strptime` format strings.",
+      "details": "3.11 rewrote `fromisoformat` to accept most ISO 8601: the `Z` suffix, basic dates like `20260928`, week dates, and offsets that previously raised `ValueError` — so the format-string zoo and the `replace(\"Z\", \"+00:00\")` workaround go away. The docs deliberately say most: non-standard legacy formats still need `strptime`, and floors on 3.10 or older parse only strict `isoformat()` output.",
+      "references": ["whatsnew/3.11"],
+      "examples": [
+        {
+          "before": [
+            "dt = datetime.strptime(\"2026-09-28T12:00:00+00:00\",",
+            "              \"%Y-%m-%dT%H:%M:%S%z\")",
+            "# the \"Z\" spelling needs a replace() workaround first"
+          ],
+          "after": ["dt = datetime.fromisoformat(\"2026-09-28T12:00:00Z\")"]
+        }
+      ]
+    },
+    {
+      "id": "typevar_tuple_variadic",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Type arity-generic signatures with `TypeVarTuple` (`*Ts`) instead of TypeVar-plus-overload towers.",
+      "details": "PEP 646's `TypeVarTuple` and unpacking express signatures that are generic over arity, replacing one-TypeVar-per-shape overload towers; the main payoff is array/numpy-style APIs. On 3.12+ prefer the inline PEP 695 `*Ts` syntax over the assignment form shown once your floor allows it.",
+      "references": ["PEP 646", "whatsnew/3.11#pep-646-variadic-generics"],
+      "examples": [
+        {
+          "before": [
+            "# one TypeVar per arity plus overloads",
+            "def scale2(v: tuple[T1, T2], k: float) -> tuple[T1, T2]: ...",
+            "def scale3(v: tuple[T1, T2, T3], k: float) -> tuple[T1, T2, T3]: ..."
+          ],
+          "after": [
+            "Ts = TypeVarTuple(\"Ts\")",
+            "",
+            "def scale(*values: *Ts, k: float) -> tuple[*Ts]: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asyncio_runner",
+      "since_version": "3.11",
+      "autofix": null,
+      "category": "Async",
+      "impact": "Low",
+      "guideline": "Run many coroutines on one event loop with `asyncio.Runner` instead of hand-rolled `new_event_loop`/`run_until_complete` plumbing.",
+      "details": "`asyncio.Runner` bundles what `asyncio.run` sets up and tears down per call, loop creation, signal handling, and async-generator shutdown, around a loop you reuse across several `run()` invocations. That suits CLIs and test harnesses that execute many top-level coroutines. One-shot entry points should stay on `asyncio.run`.",
+      "references": ["whatsnew/3.11 (asyncio)"],
+      "examples": [
+        {
+          "before": [
+            "loop = asyncio.new_event_loop()",
+            "try:",
+            "    loop.run_until_complete(warmup())",
+            "    loop.run_until_complete(process(jobs))",
+            "finally:",
+            "    loop.run_until_complete(loop.shutdown_asyncgens())",
+            "    loop.close()"
+          ],
+          "after": [
+            "with asyncio.Runner() as runner:",
+            "    runner.run(warmup())",
+            "    runner.run(process(jobs))  # one loop, managed lifecycle"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "datetime_utc_alias",
+      "since_version": "3.11",
+      "autofix": "ruff:UP017",
+      "category": "Datetime",
+      "impact": "Low",
+      "guideline": "Write `datetime.UTC` instead of the equivalent long alias `datetime.timezone.utc`.",
+      "details": "3.11 adds `datetime.UTC` as a plain alias of `datetime.timezone.utc`; ruff UP017 rewrites the long spelling. Nothing is deprecated — the old form stays valid and both names denote the same singleton object, so this is consistency polish rather than a migration, and mixed use across a codebase is harmless.",
+      "references": ["whatsnew/3.11"],
+      "examples": [
+        {
+          "before": [
+            "def now_utc() -> datetime:",
+            "    return datetime.now(datetime.timezone.utc)"
+          ],
+          "after": ["def now_utc() -> datetime:", "    return datetime.now(datetime.UTC)"]
+        }
+      ]
+    },
+    {
+      "id": "union_type_annotation",
+      "since_version": "3.10",
+      "autofix": "ruff:UP007",
+      "category": "Typing",
+      "impact": "Critical",
+      "guideline": "Write unions with `|` (`X | None`, `A | B`) instead of `Optional[X]` and `Union[A, B]`.",
+      "details": "PEP 604's `|` unions are the standard spelling from 3.10 on; ruff UP007 rewrites `Union` and UP045 rewrites `Optional`. Unsafe around runtime-evaluated annotations — `types.UnionType` exists only from 3.10, and libraries such as pydantic must resolve it; ruff marks the fix unsafe on pre-3.10 targets (`lint.pyupgrade.keep-runtime-typing = true` disables it).",
+      "references": ["PEP 604", "whatsnew/3.10#pep-604-new-type-union-operator"],
+      "examples": [
+        {
+          "before": ["def parse(value: Union[int, str]) -> None: ..."],
+          "after": ["def parse(value: int | str) -> None: ..."]
+        },
+        {
+          "before": ["def find(key: str) -> Optional[Item]: ..."],
+          "after": ["def find(key: str) -> Item | None: ..."]
+        }
+      ]
+    },
+    {
+      "id": "dataclass_slots",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Data",
+      "impact": "High",
+      "guideline": "Generate `__slots__` with `@dataclass(slots=True)` instead of hand-maintained slot tuples.",
+      "details": "`@dataclass(slots=True)` derives `__slots__` from the field list, removing hand-maintained slot tuples and the per-instance `__dict__`. The decorator rebuilds the class and returns a new class object — interactions with inheritance chains, `super()` calls, and field defaults need regression tests before switching.",
+      "references": ["whatsnew/3.10#slots"],
+      "examples": [
+        {
+          "before": [
+            "@dataclass",
+            "class Point:",
+            "    __slots__ = (\"x\", \"y\")",
+            "    x: int",
+            "    y: int"
+          ],
+          "after": ["@dataclass(slots=True)", "class Point:", "    x: int", "    y: int"]
+        }
+      ]
+    },
+    {
+      "id": "structural_pattern_matching",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Patterns",
+      "impact": "High",
+      "guideline": "Replace if/elif chains that destructure and dispatch on a value's shape with `match`/`case` patterns.",
+      "details": "PEP 634 matches structure: sequence, mapping, literal, and class-attribute patterns test and bind in one `case`. A bare `case name:` is a capture pattern that matches anything and never fails — literal alternatives must be written as literals or dotted paths (`case 404:`, `case Color.RED:`), and class patterns need `__match_args__` or explicit keyword subpatterns.",
+      "references": ["PEP 634", "whatsnew/3.10#pep-634-structural-pattern-matching"],
+      "examples": [
+        {
+          "before": [
+            "def handle(command):",
+            "    if isinstance(command, tuple) and command[0] == \"go\":",
+            "        direction, distance = command[1], command[2]",
+            "        return go(direction, distance)",
+            "    elif command == \"stop\":",
+            "        return stop()",
+            "    raise ValueError(command)"
+          ],
+          "after": [
+            "def handle(command):",
+            "    match command:",
+            "        case (\"go\", direction, distance):",
+            "            return go(direction, distance)",
+            "        case \"stop\":",
+            "            return stop()",
+            "    raise ValueError(command)"
+          ]
+        },
+        {
+          "before": [
+            "match command:",
+            "    case go:  # meant to match the word \"go\"; actually captures anything",
+            "        move()"
+          ],
+          "after": ["match command:", "    case \"go\":", "        move()"]
+        }
+      ]
+    },
+    {
+      "id": "zip_strict",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Collections",
+      "impact": "High",
+      "guideline": "Pass `strict=True` to `zip()` whenever the zipped iterables must have equal lengths.",
+      "details": "PEP 618: by default `zip()` stops silently at the shortest input, hiding length bugs such as mismatched columns or dropped records. `zip(a, b, strict=True)` raises `ValueError` the moment one iterable finishes before the other. Code that intentionally truncates to the shorter input will now raise, so migrate those call sites consciously; the ruff check is B905, not a UP autofix.",
+      "references": ["PEP 618", "whatsnew/3.10 (Other Language Changes)"],
+      "examples": [
+        {
+          "before": [
+            "names = [\"alice\", \"bob\"]",
+            "scores = [90, 75, 88]",
+            "pairs = list(zip(names, scores))",
+            "# the third score is silently dropped"
+          ],
+          "after": [
+            "names = [\"alice\", \"bob\"]",
+            "scores = [90, 75, 88]",
+            "pairs = list(zip(names, scores, strict=True))",
+            "# raises ValueError on the length mismatch"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "explicit_encoding_open",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Files",
+      "impact": "High",
+      "guideline": "Open text files with an explicit `encoding=\"utf-8\"` instead of relying on the platform-dependent locale default.",
+      "details": "Text I/O opened without an `encoding` argument picks the platform locale, so the same `open(path)` decodes bytes as cp1252 on Windows and UTF-8 elsewhere; PEP 597 added the `-X warn_default_encoding` switch and `EncodingWarning` to flush these sites out. Passing `encoding=\"utf-8\"` documents the on-disk contract. Floor check matters: from 3.15 PEP 686 makes UTF-8 the default and this rule reverses — see `utf8_default_encoding`.",
+      "references": [
+        "PEP 597",
+        "whatsnew/3.10#optional-encodingwarning-and-encoding-locale-option"
+      ],
+      "examples": [
+        {
+          "before": [
+            "with open(\"config.json\") as fh:",
+            "    config = json.load(fh)  # cp1252 here, utf-8 there"
+          ],
+          "after": [
+            "with open(\"config.json\", encoding=\"utf-8\") as fh:",
+            "    config = json.load(fh)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "isinstance_union",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Check multiple types with `isinstance(x, int | str)` to match PEP 604 annotation style.",
+      "details": "`isinstance` and `issubclass` accept `X | Y` unions from 3.10, keeping runtime checks visually aligned with PEP 604 annotations. The tuple form is not wrong and there is deliberately no autofix here — ruff removed UP038 outright (since 0.13.0) rather than keeping it as a rewrite; adopt the union form only for consistency.",
+      "references": ["PEP 604", "whatsnew/3.10#pep-604-new-type-union-operator"],
+      "examples": [
+        {
+          "before": ["if isinstance(value, (int, str)): ..."],
+          "after": ["if isinstance(value, int | str): ..."]
+        }
+      ]
+    },
+    {
+      "id": "type_alias_explicit",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Mark alias assignments explicitly with `X: TypeAlias = ...` (pre-3.12 floors) instead of bare assignments.",
+      "details": "PEP 613's explicit `X: TypeAlias = ...` tells checkers an assignment is a type alias, not an ordinary value. A transitional form — `typing.TypeAlias` is deprecated since 3.12 and ruff UP040 converts it to the `type` statement; projects on a 3.12+ floor should adopt `type X = ...` directly and skip this form.",
+      "references": ["PEP 613", "whatsnew/3.10#pep-613-typealias"],
+      "examples": [
+        {
+          "before": ["Vector = list[float]  # alias or accidental value?"],
+          "after": ["Vector: TypeAlias = list[float]"]
+        }
+      ]
+    },
+    {
+      "id": "dataclass_kw_only",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Data",
+      "impact": "Medium",
+      "guideline": "Force keyword-only construction with `@dataclass(kw_only=True)` or the `KW_ONLY` sentinel instead of hand-written `__init__` validation.",
+      "details": "`@dataclass(kw_only=True)` makes every field keyword-only, and the `KW_ONLY` sentinel switches only the fields declared after it — no more hand-written `__init__` just to force kwargs. The sentinel itself does not become a field, and inherited fields still order by the dataclass MRO rules, so review subclasses.",
+      "references": ["whatsnew/3.10#keyword-only-fields"],
+      "examples": [
+        {
+          "before": [
+            "@dataclass",
+            "class Conn:",
+            "    def __init__(self, *, host: str, port: int) -> None:",
+            "        self.host = host",
+            "        self.port = port"
+          ],
+          "after": ["@dataclass(kw_only=True)", "class Conn:", "    host: str", "    port: int"]
+        }
+      ]
+    },
+    {
+      "id": "parenthesized_context_managers",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Syntax",
+      "impact": "Medium",
+      "guideline": "Combine several context managers in one parenthesized `with (a as x, b as y):` statement.",
+      "details": "Since 3.10 the `with` statement accepts an arbitrarily nested parenthesized group, so `contextlib.ExitStack` scaffolding and rightward-drifting nested `with` blocks collapse into one statement. This is pure sugar — managers still enter top-to-bottom and exit in reverse — and on interpreters older than 3.10 the parenthesized form is a `SyntaxError`, unlike the `ExitStack` fallback.",
+      "references": ["whatsnew/3.10#parenthesized-context-managers"],
+      "examples": [
+        {
+          "before": [
+            "with open(\"in.txt\") as src:",
+            "    with open(\"out.txt\", \"w\") as dst:",
+            "        dst.write(src.read())"
+          ],
+          "after": [
+            "with (",
+            "    open(\"in.txt\") as src,",
+            "    open(\"out.txt\", \"w\") as dst,",
+            "):",
+            "    dst.write(src.read())"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "itertools_pairwise",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Collections",
+      "impact": "Medium",
+      "guideline": "Walk adjacent items with `itertools.pairwise(it)` instead of `zip(xs, xs[1:])`.",
+      "details": "`pairwise()` accepts any iterable — generators, iterators, file objects — and pulls items lazily, while the `zip(xs, xs[1:])` idiom demands a re-sliceable sequence and copies all but the first element. It yields `(previous, current)` tuples and yields nothing for inputs with fewer than two items. It is 3.10-only, so code shared with older floors keeps the slice idiom.",
+      "references": ["whatsnew/3.10 (itertools)"],
+      "examples": [
+        {
+          "before": [
+            "for prev, cur in zip(values, values[1:]):",
+            "    if cur < prev:",
+            "        report_drop(prev, cur)"
+          ],
+          "after": [
+            "from itertools import pairwise",
+            "",
+            "for prev, cur in pairwise(values):",
+            "    if cur < prev:",
+            "        report_drop(prev, cur)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typeguard_narrowing",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Annotate user-defined narrowing predicates with `TypeGuard[T]` instead of plain `bool` returns.",
+      "details": "A `TypeGuard[T]` return annotation tells checkers that a True result narrows the argument inside the taken branch. Narrowing is one-directional — the else branch does not get the inverted type; from 3.13 prefer `TypeIs[T]`, which narrows both branches like `isinstance`.",
+      "references": ["PEP 647", "whatsnew/3.10#pep-647-user-defined-type-guards"],
+      "examples": [
+        {
+          "before": [
+            "def is_str_list(values: list[object]) -> bool: ...",
+            "",
+            "if is_str_list(items):",
+            "    reveal_type(items)  # list[object] — no narrowing"
+          ],
+          "after": [
+            "def is_str_list(values: list[object]) -> TypeGuard[list[str]]: ...",
+            "",
+            "if is_str_list(items):",
+            "    reveal_type(items)  # list[str]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paramspec_callable",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Low",
+      "guideline": "Preserve decorated signatures with `ParamSpec`/`Concatenate` instead of `Callable[..., Any]`.",
+      "details": "`ParamSpec` captures a wrapped callable's full parameter list so decorated functions keep signature checking instead of collapsing to `Callable[..., Any]`. Requires checker support (pyright/mypy); on 3.12+ the mechanism composes with PEP 695's inline `**P` syntax.",
+      "references": ["PEP 612", "whatsnew/3.10#pep-612-parameter-specification-variables"],
+      "examples": [
+        {
+          "before": [
+            "def logged(func: Callable[..., Any]) -> Callable[..., Any]: ...",
+            "",
+            "@logged",
+            "def add(a: int, b: int) -> int: ...  # signature no longer checked"
+          ],
+          "after": [
+            "P = ParamSpec(\"P\")",
+            "R = TypeVar(\"R\")",
+            "",
+            "def logged(func: Callable[P, R]) -> Callable[P, R]: ...",
+            "",
+            "@logged",
+            "def add(a: int, b: int) -> int: ...  # signature preserved"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "int_bit_count",
+      "since_version": "3.10",
+      "autofix": null,
+      "category": "Integers",
+      "impact": "Low",
+      "guideline": "Count set bits with `x.bit_count()` instead of `bin(x).count(\"1\")`.",
+      "details": "`int.bit_count()` returns the population count of the absolute value — the same result as `bin(x).count(\"1\")`, but without materializing the number's full binary text, which matters for very large integers in hot loops. It is a method on `int`, so `float`, `Decimal`, or numpy scalars raise `AttributeError` until converted with `int()`.",
+      "references": ["whatsnew/3.10 (Other Language Changes)"],
+      "examples": [
+        {
+          "before": ["ones = bin(mask).count(\"1\")"],
+          "after": ["ones = mask.bit_count()"]
+        }
+      ]
+    },
+    {
+      "id": "builtin_generic_annotation",
+      "since_version": "3.9",
+      "autofix": "ruff:UP006",
+      "category": "Typing",
+      "impact": "Critical",
+      "guideline": "Annotate with builtin generics (`list[int]`, `dict[str, int]`) instead of `typing.List` and `typing.Dict`.",
+      "details": "PEP 585 made builtin collections subscriptable at runtime in 3.9, so `list[int]` replaces `typing.List[int]`; the typing aliases are deprecated (ruff UP006 rewrites them, UP035 removes the dead imports). Ruff marks the fix unsafe only when the runtime target is below 3.9, where `list[int]` breaks libraries that evaluate annotations at runtime, such as pydantic; on 3.9+ targets the rewrite is runtime-legal — still verify framework support before bulk fixes.",
+      "references": ["PEP 585", "whatsnew/3.9#type-hinting-generics-in-standard-collections"],
+      "examples": [
+        {
+          "before": [
+            "from typing import Dict, List",
+            "",
+            "def scores(rows: List[Row]) -> Dict[str, int]: ..."
+          ],
+          "after": ["def scores(rows: list[Row]) -> dict[str, int]: ..."]
+        }
+      ]
+    },
+    {
+      "id": "dict_merge_operator",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Collections",
+      "impact": "Critical",
+      "guideline": "Merge and update dicts with the `|` and `|=` operators instead of `{**a, **b}`, `copy()` plus `update()`, or `collections.ChainMap`.",
+      "details": "PEP 584 operators: `a | b` returns a new dict with the right operand's keys winning; `a |= b` updates `a` in place. The right operand must be mapping-like (it needs a `keys()` method), otherwise `TypeError`. `|` never mutates, so `merged = a | b` does not reproduce code that relied on `a.update(b)` aliasing through a second reference.",
+      "references": ["PEP 584", "whatsnew/3.9#dictionary-merge-update-operators"],
+      "examples": [
+        {
+          "before": [
+            "merged = {**defaults, **overrides}",
+            "",
+            "settings = defaults.copy()",
+            "settings.update(overrides)"
+          ],
+          "after": ["merged = defaults | overrides", "", "settings = defaults | overrides"]
+        }
+      ]
+    },
+    {
+      "id": "pyproject_single_config",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Critical",
+      "guideline": "Keep all project configuration in `pyproject.toml`, build metadata in `[build-system]` and `[project]` plus per-tool `[tool.*]` sections, instead of scattering setup.py, setup.cfg, pytest.ini, and .flake8 files.",
+      "details": "One file becomes the single source of truth: `[build-system]` should always be present, new projects declare metadata in the `[project]` table, and each tool reads its own `[tool.<name>]` section. Migration is incremental because every tool section is independent. Main exception: Poetry before 2.0 (pre-2025) does not consume the `[project]` table.",
+      "references": ["packaging.python.org/en/latest/guides/writing-pyproject-toml/"],
+      "examples": [
+        {
+          "before": [
+            "# setup.py          -> setup(...)",
+            "# setup.cfg         -> [metadata], [flake8]",
+            "# pytest.ini        -> [pytest]",
+            "# .isort.cfg, .pre-commit-config.yaml, requirements.txt ..."
+          ],
+          "after": [
+            "# pyproject.toml: one file, every tool",
+            "[build-system]",
+            "requires = [\"setuptools>=77\"]",
+            "build-backend = \"setuptools.build_meta\"",
+            "",
+            "[project]",
+            "name = \"mypkg\"",
+            "",
+            "[tool.pytest.ini_options]",
+            "testpaths = [\"tests\"]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "no_setup_py_cli",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Critical",
+      "guideline": "Build and install through `pip` and `python -m build`; never invoke `python setup.py <command>` from the command line.",
+      "details": "The four historical invocations, `setup.py install`, `develop`, `sdist`, and `bdist_wheel`, must not be run: they execute arbitrary project code with stale isolation semantics and were deprecated in setuptools 58.3.0. Setup.py itself is not deprecated; it remains valid as a build-backend customization file. Only its life as a command-line interface is over.",
+      "references": ["packaging.python.org/en/latest/discussions/setup-py-deprecated/"],
+      "examples": [
+        {
+          "before": [
+            "$ python setup.py install",
+            "$ python setup.py develop",
+            "$ python setup.py sdist bdist_wheel"
+          ],
+          "after": [
+            "$ python -m pip install .",
+            "$ python -m pip install --editable .",
+            "$ python -m build"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "str_removeprefix_removesuffix",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Strings",
+      "impact": "High",
+      "guideline": "Trim affixes with `str.removeprefix()` and `str.removesuffix()` instead of conditional slicing.",
+      "details": "`s.removeprefix(p)` returns `s` unchanged when the prefix is absent, replacing the `s[len(p):] if s.startswith(p) else s` idiom and its off-by-one risks; `bytes`, `bytearray`, and `UserString` gained the same methods. These are literal-affix operations, not `lstrip`/`rstrip` — `\"www.python.org\".removeprefix(\"w\")` strips the single prefix `\"w\"` once, never a character class, and never repeats.",
+      "references": ["PEP 616", "whatsnew/3.9#new-string-methods-to-remove-prefixes-and-suffixes"],
+      "examples": [
+        {
+          "before": [
+            "name = \"www.python.org\"",
+            "if name.startswith(\"www.\"):",
+            "    name = name[len(\"www.\"):]"
+          ],
+          "after": ["name = \"www.python.org\".removeprefix(\"www.\")"]
+        }
+      ]
+    },
+    {
+      "id": "requires_python_metadata",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Declare supported interpreters with `requires-python = \">=3.9\"` in `[project]`, not only with trove classifiers.",
+      "details": "Classifiers such as `Programming Language :: Python :: 3.12` are search and browsing facets; installers do not enforce them. `requires-python` is the machine-checked constraint that pip and uv evaluate before resolving. Keep the two in sync and let one floor drive both; this field is also what downstream tooling reads to detect the minimum supported version.",
+      "references": [
+        "packaging.python.org/en/latest/guides/writing-pyproject-toml/#requires-python"
+      ],
+      "examples": [
+        {
+          "before": [
+            "[project]",
+            "classifiers = [",
+            "  \"Programming Language :: Python :: 3.9\",",
+            "  \"Programming Language :: Python :: 3.10\",",
+            "]"
+          ],
+          "after": [
+            "[project]",
+            "requires-python = \">=3.9\"",
+            "classifiers = [",
+            "  \"Programming Language :: Python :: 3.9\",",
+            "  \"Programming Language :: Python :: 3.10\",",
+            "]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "src_layout",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Lay packages out under `src/` (`src/<pkg>/`) instead of the flat repository-root layout.",
+      "details": "The src layout stops the working directory from shadowing the installed package during tests, so the suite exercises what users install rather than accidental local imports, and it forces the importable surface to be declared explicitly. Development then requires an editable install (`pip install -e .` or `uv sync`); running tests off the raw checkout no longer works.",
+      "references": ["packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/"],
+      "examples": [
+        {
+          "before": ["mypkg/__init__.py", "mypkg/core.py", "tests/test_core.py"],
+          "after": ["src/mypkg/__init__.py", "src/mypkg/core.py", "tests/test_core.py"]
+        }
+      ]
+    },
+    {
+      "id": "py_typed_marker",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Ship a `py.typed` marker file inside every typed package so type checkers consume its inline types.",
+      "details": "PEP 561: packages distributing inline types MUST add a `py.typed` marker; without it, checkers ignore or stub your annotations no matter how complete they are. Single-file modules are not supported, so promote the code to a package first. The file must actually ship: declare it as package data, for example `[tool.setuptools.package-data]` with `mypkg = [\"py.typed\"]`.",
+      "references": ["PEP 561"],
+      "examples": [
+        {
+          "before": [
+            "src/mypkg/__init__.py",
+            "src/mypkg/models.py  # annotated, but checkers cannot use it"
+          ],
+          "after": [
+            "src/mypkg/__init__.py",
+            "src/mypkg/models.py",
+            "src/mypkg/py.typed",
+            "",
+            "[tool.setuptools.package-data]",
+            "mypkg = [\"py.typed\"]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uv_project_manager",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Manage environments, dependencies, and tools with `uv` instead of gluing pip, venv, pip-tools, and pipx together.",
+      "details": "uv is one fast Rust binary covering project environments, locked installs, interpreter downloads, and tool running, replacing the pip/venv/pip-tools/pipx chain (and optionally poetry, pyenv, twine, virtualenv). Its `.python-version` pin and `requires-python` awareness match how version-aware tooling already reasons about the project, so adoption does not fight existing metadata.",
+      "references": ["docs.astral.sh/uv/"],
+      "examples": [
+        {
+          "before": [
+            "$ python -m venv .venv",
+            "$ source .venv/bin/activate",
+            "$ pip install -r requirements-dev.txt",
+            "$ pipx install ruff"
+          ],
+          "after": [
+            "$ uv sync                  # environment + locked deps in one step",
+            "$ uv run pytest",
+            "$ uvx ruff check           # ephemeral tool runner"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ruff_lint_format",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "High",
+      "guideline": "Replace the flake8/isort/black/pyupgrade chain with ruff for both linting (`ruff check --fix`) and formatting (`ruff format`), configured under `[tool.ruff]` in pyproject.toml.",
+      "details": "One Rust tool covers lint rules (including the pyupgrade UP set this dataset cites in `autofix`), import sorting, and a black-compatible formatter, collapsing four tools and their config shards into one section. UP006/UP007/UP045 autofixes are unsafe around runtime-annotation libraries such as pydantic, and UP038 has been removed outright (since ruff 0.13.0).",
+      "references": ["docs.astral.sh/ruff/rules/"],
+      "examples": [
+        {
+          "before": [
+            "# .flake8, .isort.cfg, pyproject [tool.black],",
+            "# plus pyupgrade --py39-plus in CI: four tools, four configs"
+          ],
+          "after": [
+            "# pyproject.toml",
+            "[tool.ruff]",
+            "target-version = \"py39\"",
+            "",
+            "[tool.ruff.lint]",
+            "select = [\"E\", \"F\", \"I\", \"UP\"]",
+            "",
+            "# $ ruff check --fix && ruff format"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "annotated_metadata",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Attach metadata via `Annotated[T, meta]` instead of inventing custom wrapper types.",
+      "details": "`typing.Annotated[T, meta]` attaches metadata directly to a type instead of forcing bespoke wrapper classes per constraint. Static type checkers ignore the extra objects — the consumers are runtime frameworks (pydantic constraints, FastAPI dependencies) that opt in to reading them; the plain type must stay the first argument.",
+      "references": ["PEP 593", "whatsnew/3.9"],
+      "examples": [
+        {
+          "before": [
+            "# bespoke wrapper type per constraint",
+            "def set_port(port: PortInt) -> None: ..."
+          ],
+          "after": [
+            "from typing import Annotated",
+            "",
+            "def set_port(port: Annotated[int, Field(ge=0, le=65535)]) -> None: ..."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "typing_text_str",
+      "since_version": "3.9",
+      "autofix": "ruff:UP019",
+      "category": "Typing",
+      "impact": "Medium",
+      "guideline": "Use `str` instead of the Python 2 compatibility alias `typing.Text`.",
+      "details": "`typing.Text` exists only for Python 2/3 compatibility and is listed with the deprecated typing aliases; `str` is the only spelling 3.9+ code should use, and ruff UP019 replaces it everywhere. The typing docs state no removal is currently planned, but keeping it only preserves dead compatibility surface.",
+      "references": ["library/typing#deprecated-aliases"],
+      "examples": [
+        {
+          "before": ["from typing import Text", "", "def read(path: str) -> Text: ..."],
+          "after": ["def read(path: str) -> str: ..."]
+        }
+      ]
+    },
+    {
+      "id": "zoneinfo_stdlib",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Datetime",
+      "impact": "Medium",
+      "guideline": "Attach IANA time zones with `zoneinfo.ZoneInfo` instead of the third-party `pytz`.",
+      "details": "PEP 615 ships the tz database reader in the standard library: `ZoneInfo(\"Europe/Berlin\")` instances are cached and interned per key, and slot straight into `datetime(..., tzinfo=...)` and `astimezone()`. Pytz idioms do not port — `pytz.localize()` and `normalize()` have no equivalent because `ZoneInfo` handles DST transitions itself — and platforms without system tzdata (notably Windows) need the `tzdata` package as a fallback.",
+      "references": ["PEP 615", "whatsnew/3.9#zoneinfo"],
+      "examples": [
+        {
+          "before": [
+            "import pytz",
+            "",
+            "naive = datetime(2026, 9, 28, 12, 0)",
+            "berlin = pytz.timezone(\"Europe/Berlin\").localize(naive)"
+          ],
+          "after": [
+            "from zoneinfo import ZoneInfo",
+            "",
+            "berlin = datetime(2026, 9, 28, 12, 0, tzinfo=ZoneInfo(\"Europe/Berlin\"))"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asyncio_to_thread",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Async",
+      "impact": "Medium",
+      "guideline": "Offload blocking calls with `asyncio.to_thread(fn, *args, **kwargs)` instead of `loop.run_in_executor(None, fn, *args)`.",
+      "details": "`to_thread` targets the default executor, forwards keyword arguments (which `run_in_executor` cannot), and copies the current contextvars into the worker thread, so logging correlation and request-scoped state survive the hop. Reserve explicit `run_in_executor` with a `ProcessPoolExecutor` for CPU-bound work; `to_thread` is for blocking I/O and other GIL-releasing calls.",
+      "references": ["whatsnew/3.9 (asyncio)"],
+      "examples": [
+        {
+          "before": [
+            "loop = asyncio.get_running_loop()",
+            "data = await loop.run_in_executor(None, read_blocking, path)"
+          ],
+          "after": ["data = await asyncio.to_thread(read_blocking, path, mode=\"rb\")"]
+        }
+      ]
+    },
+    {
+      "id": "spdx_license_expression",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Declare licensing with SPDX expressions, `license = \"MIT\"` plus `license-files = [\"LICEN[CS]E*\"]`, instead of the deprecated table form or license classifiers.",
+      "details": "PEP 639 deprecates `license = {text = \"...\"}` and license classifiers in favor of valid SPDX license expressions, with `license-files` globs replacing per-file wiring. The new syntax needs a recent backend, setuptools >= 77.0.3 or hatchling >= 1.27, so raise the `build-system.requires` floor in the same change or older builds will fail to parse the table.",
+      "references": ["packaging.python.org/en/latest/guides/writing-pyproject-toml/"],
+      "examples": [
+        {
+          "before": [
+            "[project]",
+            "license = { text = \"MIT\" }",
+            "classifiers = [\"License :: OSI Approved :: MIT License\"]"
+          ],
+          "after": ["[project]", "license = \"MIT\"", "license-files = [\"LICEN[CS]E*\"]"]
+        }
+      ]
+    },
+    {
+      "id": "universal_lockfile",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Commit a universal `uv.lock` and reproduce environments with `uv sync` / `uv run` instead of hand-pinned requirements.txt matrices.",
+      "details": "uv's lockfile is cross-platform: one resolution records the wheel and sdist choices for every platform, so Linux CI and macOS laptops install identical dependency graphs from the same file. Commit it to version control and cache it in CI. Do not keep a parallel pip-tools hash-pinning flow on the same project; one lock authority only.",
+      "references": ["docs.astral.sh/uv/"],
+      "examples": [
+        {
+          "before": [
+            "# requirements-linux.txt",
+            "requests==2.32.3",
+            "",
+            "# requirements-macos.txt (drifting)",
+            "requests==2.32.0"
+          ],
+          "after": [
+            "# uv.lock: committed, resolved once for every platform",
+            "$ uv sync   # installs the exact locked graph everywhere"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pytest_config_in_pyproject",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Tooling",
+      "impact": "Medium",
+      "guideline": "Configure pytest in `pyproject.toml` under `[tool.pytest.ini_options]` instead of maintaining pytest.ini or setup.cfg sections.",
+      "details": "pytest >= 6.0 reads `[tool.pytest.ini_options]`, and 9.0 adds a native typed `[tool.pytest]` table, so the test runner needs no dedicated file. Mind precedence: pytest picks the first of pytest.toml, pytest.ini, pyproject.toml, tox.ini, setup.cfg, and first match wins with no merging; delete the old file when migrating or the new section is silently ignored.",
+      "references": ["docs.pytest.org/en/stable/customize.html"],
+      "examples": [
+        {
+          "before": ["# pytest.ini", "[pytest]", "testpaths = tests", "addopts = -q"],
+          "after": [
+            "# pyproject.toml",
+            "[tool.pytest.ini_options]",
+            "testpaths = [\"tests\"]",
+            "addopts = \"-q\""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "functools_cache",
+      "since_version": "3.9",
+      "autofix": "ruff:UP033",
+      "category": "Data",
+      "impact": "Medium",
+      "guideline": "Cache pure function results with `@functools.cache` instead of `@functools.lru_cache(maxsize=None)`.",
+      "details": "`functools.cache` is the 3.9 name for the unbounded cache previously spelled `lru_cache(maxsize=None)`: a drop-in replacement with identical semantics and one less argument to mistype; ruff UP033 rewrites it. The cache remains unbounded — on instance methods it keeps every `self` alive for the process lifetime, so cap growth with `lru_cache(maxsize=...)` on methods of short-lived classes.",
+      "references": ["whatsnew/3.9"],
+      "examples": [
+        {
+          "before": ["@functools.lru_cache(maxsize=None)", "def fib(n: int) -> int: ..."],
+          "after": ["@functools.cache", "def fib(n: int) -> int: ..."]
+        }
+      ]
+    },
+    {
+      "id": "lru_cache_no_parens",
+      "since_version": "3.9",
+      "autofix": "ruff:UP011",
+      "category": "Data",
+      "impact": "Medium",
+      "guideline": "Write the bare decorator `@functools.lru_cache` instead of the empty call `@functools.lru_cache()`.",
+      "details": "Since 3.8 `lru_cache` works without parentheses when it gets no arguments, so the empty call is dead weight; ruff UP011 strips it. The rewrite is exact only for the truly empty call — a call passing `maxsize` or `typed` keeps its parentheses, and the bare form means the defaults (`maxsize=128`). Filed at the 3.9 dataset floor even though the syntax is one minor older.",
+      "references": ["docs.astral.sh/ruff/rules/lru-cache-without-parameters"],
+      "examples": [
+        {
+          "before": ["@functools.lru_cache()", "def expensive(x: int) -> int: ..."],
+          "after": ["@functools.lru_cache", "def expensive(x: int) -> int: ..."]
+        }
+      ]
+    },
+    {
+      "id": "graphlib_topological_sort",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Algorithms",
+      "impact": "Low",
+      "guideline": "Order dependency graphs with `graphlib.TopologicalSorter` instead of a hand-rolled Kahn or DFS toposort.",
+      "details": "Pass a `{node: predecessors}` mapping: `static_order()` returns one flat ordering, while `prepare()` plus repeated `get_ready()`/`done()` emits each node the moment its dependencies finish — the incremental mode maps directly onto worker pools. `CycleError` is raised by `prepare()`/`static_order()`, not at construction, so an invalid graph stays silent until you actually order it.",
+      "references": ["whatsnew/3.9#graphlib"],
+      "examples": [
+        {
+          "before": [
+            "def topo(graph):",
+            "    order, done = [], set()",
+            "    while len(done) < len(graph):",
+            "        for node, preds in graph.items():",
+            "            if node not in done and preds <= done:",
+            "                order.append(node)",
+            "                done.add(node)",
+            "    return order"
+          ],
+          "after": [
+            "from graphlib import TopologicalSorter",
+            "",
+            "order = list(TopologicalSorter(graph).static_order())"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "math_lcm_multiarg",
+      "since_version": "3.9",
+      "autofix": null,
+      "category": "Integers",
+      "impact": "Low",
+      "guideline": "Compute shared divisors and periods with `math.gcd(*values)` and `math.lcm(*values)` instead of reduce chains or hand-written lcm helpers.",
+      "details": "Since 3.9 both functions accept any number of arguments, replacing `functools.reduce(math.gcd, values)` folds and per-pair lcm helpers. `lcm()` with no arguments returns 1, the identity element. Both still accept integers only — `float` or `Fraction` operands raise `TypeError`, so numeric code outside the integers keeps its own helper.",
+      "references": ["whatsnew/3.9"],
+      "examples": [
+        {
+          "before": [
+            "def lcm2(a, b):",
+            "    return a * b // gcd(a, b)",
+            "",
+            "step = lcm2(lcm2(4, 6), 9)  # hand-chained"
+          ],
+          "after": ["from math import lcm", "", "step = lcm(4, 6, 9)"]
+        }
+      ]
+    }
+  ]
+}
